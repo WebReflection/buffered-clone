@@ -11,14 +11,12 @@ import {
   RECURSIVE,
 } from './constants.js';
 
-import {
-  encoder,
-  ui32a,
-  ui8a,
-} from './shared.js';
+import { ui32a, ui8a } from './shared.js';
 
 const { isArray } = Array;
 const { entries } = Object;
+
+const encoder = new TextEncoder;
 
 /**
  * @param {number} length
@@ -87,34 +85,41 @@ const checkSerialized = value => {
 /**
  * @param {import("./shared.js").Serializable} value
  * @param {number[]} ui8
+ * @param {Map} map
  */
-const encode = (value, ui8) => {
+const encode = (value, ui8, map) => {
+  if (map.has(value)) {
+    ui8.push(...map.get(value));
+    return;
+  }
   switch (typeof value) {
     case 'object': {
       if (value) {
         if (isArray(value)) {
+          map.set(value, [RECURSIVE, ...asLength(ui8.length)]);
           const { length } = value;
           ui8.push(ARRAY, ...asLength(length));
           for (let i = 0; i < length; i++)
-            encode(checkSerialized(value[i])[0], ui8);
+            encode(checkSerialized(value[i])[0], ui8, map);
         }
         else {
           const pairs = [];
           let [json, OK] = asJSON(value);
           if (OK) {
             if (json === value || (typeof json === 'object' && json)) {
+              map.set(value, [RECURSIVE, ...asLength(ui8.length)]);
               let length = 0;
               for (let [k, v] of entries(value)) {
                 [v, OK] = checkSerialized(v);
                 if (OK) {
-                  encode(k, pairs);
-                  encode(v, pairs);
+                  encode(k, pairs, map);
+                  encode(v, pairs, map);
                   length++;
                 }
               }
               ui8.push(OBJECT, ...asLength(length), ...pairs);
             }
-            else encode(json, ui8);
+            else encode(json, ui8, map);
           }
         }
       }
@@ -122,11 +127,16 @@ const encode = (value, ui8) => {
       break;
     }
     case 'string': {
-      asString(ui8, STRING, value);
+      if (value.length) {
+        map.set(value, [RECURSIVE, ...asLength(ui8.length)]);
+        asString(ui8, STRING, value);
+      }
+      else ui8.push(STRING, 0);
       break;
     }
     case 'number':
     case 'bigint': {
+      map.set(value, [RECURSIVE, ...asLength(ui8.length)]);
       asString(ui8, NUMBER, String(value));
       break;
     }
@@ -143,6 +153,6 @@ const encode = (value, ui8) => {
  */
 export default value => {
   const ui8 = [];
-  encode(value, ui8);
+  encode(value, ui8, new Map);
   return new Uint8Array(ui8);
 };

@@ -4,9 +4,6 @@ import { BYTES_PER_ELEMENT } from './constants.js';
 
 /** @typedef {null | boolean | bigint | number | string | any[] | object} Serializable */
 
-export const buffer = new ArrayBuffer(BYTES_PER_ELEMENT);
+const buffer = new ArrayBuffer(BYTES_PER_ELEMENT);
 export const ui32a = new Uint32Array(buffer);
 export const ui8a = new Uint8Array(buffer);
-
-export const encoder = new TextEncoder;
-export const decoder = new TextDecoder;
