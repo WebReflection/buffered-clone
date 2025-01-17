@@ -7,6 +7,8 @@ import {
   STRING,
   ARRAY,
   OBJECT,
+  BUFFER,
+  TYPED,
   RECURSIVE,
 } from './constants.js';
 
@@ -77,6 +79,20 @@ const decode = (ui8, at, map) => {
       map.set(i, value);
       let length = fromLength(ui8, at);
       while (length--) value[decode(ui8, at, map)] = decode(ui8, at, map);
+      return value;
+    }
+    case BUFFER: {
+      const length = fromLength(ui8, at);
+      const start = at.i;
+      const end = (at.i += length);
+      const { buffer } = ui8.slice(start, end);
+      map.set(i, buffer);
+      return buffer;
+    }
+    case TYPED: {
+      const Class = globalThis[decode(ui8, at, map)];
+      const value = new Class(decode(ui8, at, map));
+      map.set(i, value);
       return value;
     }
     case RECURSIVE: {

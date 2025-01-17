@@ -8,13 +8,18 @@ import {
   STRING,
   ARRAY,
   OBJECT,
+  BUFFER,
+  TYPED,
   RECURSIVE,
 } from './constants.js';
 
 import { ui32a, ui8a } from './shared.js';
 
 const { isArray } = Array;
-const { entries } = Object;
+const { toStringTag } = Symbol;
+const { entries, getPrototypeOf } = Object;
+
+const TypedArray = getPrototypeOf(ui8a.constructor);
 
 const encoder = new TextEncoder;
 
@@ -103,21 +108,36 @@ const encode = (value, ui8, map) => {
             encode(checkSerialized(value[i])[0], ui8, map);
         }
         else {
-          const pairs = [];
           let [json, OK] = asJSON(value);
           if (OK) {
             if (json === value || (typeof json === 'object' && json)) {
               map.set(value, [RECURSIVE, ...asLength(ui8.length)]);
-              let length = 0;
-              for (let [k, v] of entries(value)) {
-                [v, OK] = checkSerialized(v);
-                if (OK) {
-                  encode(k, pairs, map);
-                  encode(v, pairs, map);
-                  length++;
+              switch (true) {
+                case json instanceof TypedArray: {
+                  ui8.push(TYPED);
+                  encode(json[toStringTag], ui8, map);
+                  json = json.buffer;
+                }
+                case json instanceof ArrayBuffer: {
+                  const ui8a = new Uint8Array(json);
+                  ui8.push(BUFFER, ...asLength(ui8a.length), ...ui8a);
+                  break;
+                }
+                default: {
+                  let length = 0;
+                  const pairs = [];
+                  for (let [k, v] of entries(json)) {
+                    [v, OK] = checkSerialized(v);
+                    if (OK) {
+                      encode(k, pairs, map);
+                      encode(v, pairs, map);
+                      length++;
+                    }
+                  }
+                  ui8.push(OBJECT, ...asLength(length), ...pairs);
+                  break;
                 }
               }
-              ui8.push(OBJECT, ...asLength(length), ...pairs);
             }
             else encode(json, ui8, map);
           }

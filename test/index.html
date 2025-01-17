@@ -4,10 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script type="module">
+    import { BSON } from 'https://esm.run/bson';
     import { encode, decode } from '../src/index.js';
 
     globalThis.encode = encode;
     globalThis.decode = decode;
+
+    const t = new Uint32Array([1, 2, 3]);
+
+    const basic = {a: [1, 2, 3], b: [], c: '', t};
+    // console.log(BSON.serialize(basic));
+    console.log(encode(basic));
+    console.log(decode(encode(basic)));
+
+    const complex = {a: [1, 2, 3], basic};
+    // console.log(BSON.serialize(complex));
+    // console.log(encode(complex));
 
   </script>
 </head>
