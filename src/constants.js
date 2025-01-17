@@ -6,14 +6,25 @@ export const { BYTES_PER_ELEMENT } = Uint32Array;
  * @param {string} c
  * @returns
  */
-const code = c => c.charCodeAt(0);
+const $ = c => c.charCodeAt(0);
 
 export const NULL       = 0;
-export const BOOLEAN    = code('b');
-export const NUMBER     = code('n');
-export const STRING     = code('s');
-export const ARRAY      = code('A');
-export const OBJECT     = code('O');
-export const BUFFER     = code('B');
-export const TYPED      = code('T');
-export const RECURSIVE  = code('r');
+export const BUFFER     = $('B');
+export const BIGINT     = $('I');
+export const NUMBER     = $('n');
+export const ARRAY      = $('A');
+export const RECURSIVE  = $('r');
+export const SYMBOL     = $('y');
+
+export const DATE       = $('D');
+export const OBJECT     = $('O');
+export const UNDEFINED  = $('0');
+export const MAP        = $('M');
+export const SET        = $('S');
+export const TYPED      = $('T');
+export const ERROR      = $('e');
+export const REGEXP     = $('R');
+export const STRING     = $('s');
+
+export const BOOLEAN    = $('b');
+export const FUNCTION   = $('f');

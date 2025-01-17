@@ -10,25 +10,26 @@ import {
   BUFFER,
   TYPED,
   RECURSIVE,
+  BIGINT,
+  ERROR,
+  REGEXP,
+  SET,
+  MAP,
+  DATE,
 } from './constants.js';
 
 import { ui32a, ui8a } from './shared.js';
 
-const decoder = new TextDecoder;
+/** @typedef {Map<number,any>} Cache */
 
 /**
  * @typedef {Object} Position
  * @property {number} i
  */
 
-/**
- * @param {string} str
- * @returns
- */
-const asNumber = str => {
-  const num = parseFloat(str);
-  return String(num) === str ? num : BigInt(num);
-};
+const { fromCharCode } = String;
+
+const decoder = new TextDecoder;
 
 /**
  * @param {Uint8Array} ui8
@@ -45,27 +46,27 @@ const fromLength = (ui8, at) => {
 /**
  * @param {Uint8Array} ui8
  * @param {Position} at
- * @param {Map} map
- * @returns {import("./shared.js").Serializable}
+ * @returns
+ */
+const number = (ui8, at) => {
+  const length = fromLength(ui8, at);
+  const start = at.i;
+  const end = (at.i += length);
+  return fromCharCode(...ui8.slice(start, end));
+};
+
+/**
+ * @param {Uint8Array} ui8
+ * @param {Position} at
+ * @param {Cache} map
+ * @returns
  */
 const decode = (ui8, at, map) => {
-  const { i } = at;
-  const current = ui8[at.i++];
-  switch (current) {
-    case NULL: return null;
-    case BOOLEAN: return ui8[at.i++] === 1;
-    case STRING:
-    case NUMBER: {
-      const length = fromLength(ui8, at);
-      if (length) {
-        const start = at.i;
-        const end = (at.i += length);
-        const value = decoder.decode(ui8.slice(start, end));
-        const result = current === NUMBER ? asNumber(value) : value;
-        map.set(i, result);
-        return result;
-      }
-      return '';
+  const i = at.i++;
+  const type = ui8[i];
+  switch (type) {
+    case RECURSIVE: {
+      return map.get(fromLength(ui8, at));
     }
     case ARRAY: {
       const value = [];
@@ -81,6 +82,32 @@ const decode = (ui8, at, map) => {
       while (length--) value[decode(ui8, at, map)] = decode(ui8, at, map);
       return value;
     }
+    case STRING: {
+      const length = fromLength(ui8, at);
+      if (length) {
+        const start = at.i;
+        const end = (at.i += length);
+        const value = decoder.decode(ui8.slice(start, end));
+        map.set(i, value);
+        return value;
+      }
+      return '';
+    }
+    case NUMBER:
+    case BIGINT: {
+      const string = number(ui8, at);
+      const value = type === BIGINT ? BigInt(string) : parseFloat(string);
+      map.set(i, value);
+      return value;
+    }
+    case BIGINT: {
+      const string = number(ui8, at);
+      const value = BigInt(string);
+      map.set(i, value);
+      return value;
+    }
+    case BOOLEAN: return ui8[at.i++] === 1;
+    case NULL: return null;
     case BUFFER: {
       const length = fromLength(ui8, at);
       const start = at.i;
@@ -89,20 +116,60 @@ const decode = (ui8, at, map) => {
       map.set(i, buffer);
       return buffer;
     }
+    case DATE: {
+      const value = new Date(number(ui8, at));
+      map.set(i, value);
+      return value;
+    }
+    case MAP: {
+      const value = new Map;
+      map.set(i, value);
+      at.i++;
+      let length = fromLength(ui8, at);
+      while (length--)
+        value.set(.../** @type {[any,any]} */(decode(ui8, at, map)));
+      return value;
+    }
+    case SET: {
+      const value = new Set;
+      map.set(i, value);
+      at.i++;
+      let length = fromLength(ui8, at);
+      while (length--)
+        value.add(decode(ui8, at, map));
+      return value;
+    }
+    case ERROR: {
+      const Class = globalThis[decode(ui8, at, map)];
+      const value = new Class(decode(ui8, at, map));
+      map.set(i, value);
+      return value;
+    }
+    case REGEXP: {
+      const name = decode(ui8, at, map);
+      const flags = decode(ui8, at, map);
+      const value = new RegExp(name, flags);
+      map.set(i, value);
+      return value;
+    }
     case TYPED: {
       const Class = globalThis[decode(ui8, at, map)];
       const value = new Class(decode(ui8, at, map));
       map.set(i, value);
       return value;
     }
-    case RECURSIVE: {
-      return map.get(fromLength(ui8, at));
+    default: {
+      throw new TypeError(`Unable to decode type: ${fromCharCode(type)}`);
     }
   }
 };
 
 /**
- * @param {Uint8Array} ui8
+ * @param {Uint8Array<ArrayBuffer>} ui8
+ * @param {Cache} [map]
  * @returns
  */
-export default ui8 => decode(ui8, /** @type {Position} */({ i: 0 }), new Map);
+export default (ui8, map = new Map) => {
+  const at = /** @type {Position} */({ i: 0 });
+  return decode(ui8, at, map);
+};
