@@ -30,6 +30,24 @@ const decoded = decode(encoded);
 target.postMessage(encoded, [encoded.buffer]);
 ```
 
+## Summary
+
+  * **[Specifications](#specifications)**
+    * [Types](#types)
+    * [JSON Types](#json-types)
+    * [StructuredClone Types](#structuredclone-types)
+    * [About Recursion](#about-recursion)
+    * [About Length(value)](#about-lengthvalue)
+    * [About ASCIIString(value)](#about-asciistringvalue)
+  * **[JSON types to Binary Conversion](#json-types-to-binary-conversion)**
+  * **[StructuredClone types to Binary Conversion](#structuredclone-types-to-binary-conversion)**
+  * **[API](#api)**
+    * [BufferedClone.encode(any[, cache]):Uint8Array](#bufferedcloneencodeany-cacheuint8array)
+    * [BufferedClone.decode(Uint8Array<ArrayBuffer>[, cache]):any](#bufferedclonedecodeuint8arrayarraybuffer-cacheany)
+  * **[F.A.Q.](#faq)**
+
+- - -
+
 ## Specifications
 
 This section describes how values gets converted into their own binary format, as long as their *type* is recognized by this library.
@@ -82,7 +100,7 @@ Everything else is flagged as *parsed* and it will return a `RECURSIVE` detail s
 
 #### About `Length(value)`
 
-Currently, each complex value can have up to a *Uint32* `length`, roughly *4GB of data*, but because the buffer is based on a *Uint8* view, such length needs to be distributed in an optimized way, so that a *length* is always represented by the amount of bytes to read and their values.
+Currently, each complex value can have up to a *Uint32* `length`, roughly *4GB of data*, but because the buffer is based on a *Uint8* view, such length needs to be distributed in an optimized way, so that a *length* is always represented by the amount of bytes to read and retrieve their values.
 
 ```js
 Length(0);                // [0]
@@ -182,3 +200,64 @@ In *JS* case, that is `new TextEncoder().encode(string)` which produces already 
   * **SET** has its `type` and its content stored as an array of *values*: `[83, ...array([...set])]`
   * **TYPED** has its `type`, its typed *Class name* and its buffer stored as it is: `[84, ...encode(ref[Symbol.toStringTag]), ...ref.buffer]`. Please note that **DataView** references are handled exactly the same!
 
+- - -
+
+## API
+
+Both `encode` and `decode` abilities are modules a part, grouped only by the *main* entry point but `buffered-clone/encode` and `buffered-clone/decode` wll provide the minimal amount of code needed to make this module work.
+
+### BufferedClone.`encode(any[, cache]):Uint8Array`
+
+This utility is able to encode any *StructuredClone* compatible data so that `function`, `symbol`, or `undefined`, will be simply ignored.
+
+Differently from `structuredClone` though, this module does not *throw* if data can't be serialized, more aligned with the feature, and success, `JSON` had to date across platforms.
+
+```js
+import encode from 'buffered-clone/encode';
+
+encode(anything); // Uint8Array<ArrayBuffer>
+
+const myCache = new Map;
+const a = encode(anything, myCache); // Uint8Array<ArrayBuffer>
+const b = encode(anything, myCache); // Uint8Array<ArrayBuffer>
+```
+
+If a `cache` optional argument is passed, multiple encodings will be faster when potentially multiple same references used before are in place.
+
+> [!IMPORTANT]
+> If you pass your own *cache* it is entirely up to you to `cache.clear()` it from time to time, otherwise all references, including strings or numbers, that passed through it will bloat the *RAM*
+
+### BufferedClone.`decode(Uint8Array<ArrayBuffer>[, cache]):any`
+
+This utility is able to decode anything that was previously encoded via this library.
+
+It will return a fresh new object out of the underlying buffer and it could, eventually, use a *cache* too:
+
+```js
+import decode from 'buffered-clone/decode';
+
+decode(encodedStuff); // any
+
+const myCache = new Map;
+const a = decode(encodedStuff, myCache); // any
+const b = decode(encodedStuff, myCache); // any with ⚠️ same references!
+```
+
+If a `cache` optional argument is passed, multiple decodings will be faster if the original was already decoded but careful there, that means stored references from previous *decode* operations will be revealed directly as direct references to any other previous *decoded* variable.
+
+> [!IMPORTANT]
+> If unique identity matters on `decode`, do not pass a `cache` argument or previous decoded references will have shared underlying data to be worry about!
+
+
+> [!IMPORTANT]
+> As it is for `encode`, you are in charge of `cache.clear()` from time to time or all references in there will be kept "*forever*".
+
+That's it, you can decide on occasions *when* to pass that optional `cache` but the rule of thumbs is that you shouldn't, also because performance in here should be awesome regardless while *decoding* any buffer.
+
+- - -
+
+## F.A.Q.
+
+  * **why not [BSON](https://en.wikipedia.org/wiki/BSON)?** - because "*BSON originated in 2009*" so it's old. I don't mean to state it's broken, outdated, not fast or anything, I just wanted a fresh start with *Web* constraints and features in mind and that is *StructuredClone*, because *BSON*, as example, is incapable of recursion while here I have **recursion as first citizen**. On the other hand, buffers in here are usually much smaller than buffers in *BSON* and mostly because of the recursion algorithm, but also because of the way all stuff is serialized, with `Length` being a major player in that space 😎
+  * **wasn't [@ungap/structured-clone](https://github.com/ungap/structured-clone#readme) there yet?** - sort of ... the way I've shaped that project is a JS way only and based on *JSON* premises ... after discussing a lot with other people involved in *serialization* though, it turned out the bottleneck to communicate across threads is the `postMessage` dance itself. Here I wanted to explore the ability to transfer buffers as they are, as opposite of using a smart library to drop recursion, to then `postMessage` it and then reveal such recursion on the other side. This module goal is to explore, and hopefully solve, all performance related issues to cross threads communication, in a way that scales to any programming language, or wireless protocols, as long as all specs are clear 😇
+  * **wasn't [flatted](https://github.com/WebReflection/flatted#readme) the way?** - again, both *flatted* and my *structuredClone* polyfill are there to solve a *JS* only use case. Here there is an opportunity to solve cross *PL* communication through a buffer, including *WASM*, so that every other previous attempt of mine to fix *JSON* constraints can be consider futile when it comes to other *PL*s or envs. True that *flatted* offers both a *Python* and *PHP* module to recreate in those *PL*s the original data, but in here there is no such limitation in terms of target *PL*s so that even `C` or `C++` or `Rust` could provide their own `bufferedClone.decode(view)` ability 🥳
