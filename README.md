@@ -154,14 +154,12 @@ const Length = length => {
 ```js
 // ℹ️ retrieve the length while crawling the buffer
 const fromLength = (ui8View, at) => {
-  // reset the underlying buffer
-  ui32a[0] = 0;
+  let value = 0;
   // loop from 0 to the [0-4] length stored at current position
-  for (let i = 0, length = ui8View[at.i++]; i < length; i++)
-    // update the underlying buffer while moving position forward
-    ui8a[i] = ui8View[at.i++];
-  // return the length as Uint32 value
-  return ui32a[0];
+  for (let i = 0, length = ui8[at.i++]; i < length; i++)
+    // add the next value padded by 8
+    value += ui8[at.i++] << (i * 8);
+  return value;
 };
 ```
 

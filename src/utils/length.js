@@ -1,21 +1,21 @@
 //@ts-check
 
-const { BYTES_PER_ELEMENT } = Uint32Array;
-const buffer = new ArrayBuffer(BYTES_PER_ELEMENT);
-const ui32a = new Uint32Array(buffer);
-const ui8a = new Uint8Array(buffer);
-
 /**
  * @param {Uint8Array} ui8
  * @param {import("../decode.js").Position} at
  * @returns
  */
 export const fromLength = (ui8, at) => {
-  ui32a[0] = 0;
+  let value = 0;
   for (let i = 0, length = ui8[at.i++]; i < length; i++)
-    ui8a[i] = ui8[at.i++];
-  return ui32a[0];
+    value += ui8[at.i++] << (i * 8);
+  return value;
 };
+
+const { BYTES_PER_ELEMENT } = Uint32Array;
+const buffer = new ArrayBuffer(BYTES_PER_ELEMENT);
+const ui32a = new Uint32Array(buffer);
+const ui8a = new Uint8Array(buffer);
 
 /**
  * @param {number} type
