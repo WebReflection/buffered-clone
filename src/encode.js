@@ -11,9 +11,6 @@ import {
   TYPED,
   RECURSIVE,
   BIGINT,
-  UNDEFINED,
-  SYMBOL,
-  FUNCTION,
   ERROR,
   REGEXP,
   SET,
@@ -32,15 +29,37 @@ const { entries, getPrototypeOf } = Object;
 
 const TypedArray = getPrototypeOf(Uint8Array);
 
-const TypeOf = {
-  undefined: UNDEFINED,
-  boolean: BOOLEAN,
-  number: NUMBER,
-  bigint: BIGINT,
-  string: STRING,
-  symbol: SYMBOL,
-  function: FUNCTION,
-  object: OBJECT,
+/**
+ * @param {any} value
+ * @param {boolean} asNull
+ * @returns {[boolean, number]}
+ */
+const asSerialized = (value, asNull) => {
+  switch (asValid(value)) {
+    case 'object': {
+      if (value) {
+        if (value.constructor === Object) return [true, OBJECT];
+        if (isArray(value)) return [true, ARRAY];
+        if (value instanceof ArrayBuffer) return [true, BUFFER];
+        if (value instanceof Date) return [true, DATE];
+        if (value instanceof Map) return [true, MAP];
+        if (value instanceof Set) return [true, SET];
+        if (value instanceof Error) return [true, ERROR];
+        if (value instanceof RegExp) return [true, REGEXP];
+        if (
+          value instanceof TypedArray ||
+          value instanceof DataView
+        ) return [true, TYPED];
+        return [true, OBJECT];
+      }
+      return [true, NULL];
+    }
+    case 'string': return [true, STRING];
+    case 'number': return [true, NUMBER];
+    case 'boolean': return [true, BOOLEAN];
+    case 'bigint': return [true, BIGINT];
+    default: return [asNull, NULL];
+  }
 };
 
 /**
@@ -52,6 +71,20 @@ const asUint8Array = (type, value) => {
   const result = toLength(type, value.length);
   result.push(...value);
   return result;
+};
+
+/**
+ * @param {any} value
+ * @returns
+ */
+const asValid = value => {
+  const type = typeof value;
+  switch (type) {
+    case 'symbol':
+    case 'function':
+    case 'undefined': return '';
+    default: return type;
+  }
 };
 
 /**
@@ -73,26 +106,20 @@ const array = (value, ui8, map) => {
 const buffer = value => asUint8Array(BUFFER, new Uint8Array(value));
 
 /**
- * @param {any} value
+ * @param {number} type
+ * @param {any[]} values
  * @param {number[]} ui8
  * @param {Cache} map
  */
-const object = (value, ui8, map) => {
-  let length = 0;
-  const pairs = [];
-  for (let [k, v] of entries(value)) {
-    const value = [];
-    encode(v, value, map, false);
-    if (value.length) {
-      encode(k, pairs, map, false);
-      pairs.push(...value);
-      length++;
-    }
+const object = (type, values, ui8, map) => {
+  const { length } = values;
+  if (length) {
+    ui8.push(...toLength(type, length));
+    for (let i = 0; i < length; i++)
+      encode(values[i], ui8, map, false);
   }
-  if (length)
-    ui8.push(...toLength(OBJECT, length), ...pairs);
   else
-    ui8.push(OBJECT, 0);
+    ui8.push(type, 0);
 };
 
 /**
@@ -105,38 +132,16 @@ const recursive = (value, ui8, map) => {
 };
 
 /**
+ * @param {number} type
+ * @param {any} key
  * @param {any} value
- * @param {boolean} asNull
- * @returns
+ * @param {number[]} ui8
+ * @param {Cache} map
  */
-const canSerialize = (value, asNull) => {
-  let OK = true, type = TypeOf[typeof value];
-  switch (type) {
-    case SYMBOL:
-    case FUNCTION:
-    case UNDEFINED:
-      if (asNull) type = NULL;
-      else OK = false;
-      break;
-    case OBJECT:
-      if (value) {
-        if (value.constructor === Object) {}
-        else if (isArray(value)) type = ARRAY;
-        else if (value instanceof ArrayBuffer) type = BUFFER;
-        else if (value instanceof Date) type = DATE;
-        else if (value instanceof Map) type = MAP;
-        else if (value instanceof Set) type = SET;
-        else if (value instanceof Error) type = ERROR;
-        else if (value instanceof RegExp) type = REGEXP;
-        else if (
-          value instanceof TypedArray ||
-          value instanceof DataView
-        ) type = TYPED;
-      }
-      else type = NULL;
-      break;
-  }
-  return [OK, type];
+const simple = (type, key, value, ui8, map) => {
+  ui8.push(type);
+  encode(key, ui8, map, false);
+  encode(value, ui8, map, false);
 };
 
 const encoder = new TextEncoder;
@@ -154,7 +159,7 @@ const encode = (value, ui8, map, asNull) => {
     return;
   }
 
-  const [OK, type] = canSerialize(value, asNull);
+  const [OK, type] = asSerialized(value, asNull);
   if (OK) {
     switch (type) {
       case ARRAY: {
@@ -164,7 +169,11 @@ const encode = (value, ui8, map, asNull) => {
       }
       case OBJECT: {
         recursive(value, ui8, map);
-        object(value, ui8, map);
+        const values = [];
+        for (const [k, v] of entries(value)) {
+          if (asValid(v)) values.push(k, v);
+        }
+        object(OBJECT, values, ui8, map);
         break;
       }
       case STRING: {
@@ -199,37 +208,42 @@ const encode = (value, ui8, map, asNull) => {
         ui8.push(...toASCII(DATE, value.toISOString()));
         break;
       }
-      case MAP:
+      case MAP: {
+        recursive(value, ui8, map);
+        const values = [];
+        for (const [k, v] of value) {
+          if (asValid(k) && asValid(v)) values.push(k, v);
+        }
+        object(MAP, values, ui8, map);
+        break;
+      }
       case SET: {
         recursive(value, ui8, map);
-        ui8.push(type);
-        array([...value], ui8, map);
+        const values = [];
+        for (const v of value) {
+          if (asValid(v)) values.push(v);
+        }
+        object(SET, values, ui8, map);
         break;
       }
       case ERROR: {
         const { name, message } = value;
         if (name in globalThis) {
           recursive(value, ui8, map);
-          ui8.push(ERROR);
-          encode(name, ui8, map, false);
-          encode(message, ui8, map, false);
+          simple(ERROR, name, message, ui8, map);
         }
         break;
       }
       case REGEXP: {
         recursive(value, ui8, map);
-        ui8.push(REGEXP);
-        encode(value.source, ui8, map, false);
-        encode(value.flags, ui8, map, false);
+        simple(REGEXP, value.source, value.flags, ui8, map);
         break;
       }
       case TYPED: {
         const Class = value[toStringTag];
         if (Class in globalThis) {
           recursive(value, ui8, map);
-          ui8.push(TYPED);
-          encode(Class, ui8, map, false);
-          ui8.push(...buffer(value.buffer));
+          simple(TYPED, Class, value.buffer, ui8, map);
         }
         break;
       }
@@ -240,11 +254,10 @@ const encode = (value, ui8, map, asNull) => {
 /**
  * @template T
  * @param {T extends undefined ? never : T extends Function ? never : T extends symbol ? never : T} value
- * @param {Cache} [map]
  * @returns
  */
-export default (value, map = new Map) => {
+export default value => {
   const ui8 = [];
-  encode(value, ui8, map, false);
+  encode(value, ui8, new Map, false);
   return new Uint8Array(ui8);
 };

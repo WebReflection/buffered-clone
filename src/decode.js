@@ -46,15 +46,15 @@ const decode = (ui8, at, map) => {
     case ARRAY: {
       const value = [];
       map.set(i, value);
-      let length = fromLength(ui8, at);
-      while (length--) value.push(decode(ui8, at, map));
+      for (let i = 0, length = fromLength(ui8, at); i < length; i++)
+        value.push(decode(ui8, at, map));
       return value;
     }
     case OBJECT: {
       const value = {};
       map.set(i, value);
-      let length = fromLength(ui8, at);
-      while (length--) value[decode(ui8, at, map)] = decode(ui8, at, map);
+      for (let i = 0, length = fromLength(ui8, at); i < length; i += 2)
+        value[decode(ui8, at, map)] = decode(ui8, at, map);
       return value;
     }
     case STRING: {
@@ -99,18 +99,14 @@ const decode = (ui8, at, map) => {
     case MAP: {
       const value = new Map;
       map.set(i, value);
-      at.i++;
-      let length = fromLength(ui8, at);
-      while (length--)
-        value.set(.../** @type {[any,any]} */(decode(ui8, at, map)));
+      for (let i = 0, length = fromLength(ui8, at); i < length; i += 2)
+        value.set(decode(ui8, at, map), decode(ui8, at, map));
       return value;
     }
     case SET: {
       const value = new Set;
       map.set(i, value);
-      at.i++;
-      let length = fromLength(ui8, at);
-      while (length--)
+      for (let i = 0, length = fromLength(ui8, at); i < length; i++)
         value.add(decode(ui8, at, map));
       return value;
     }
@@ -121,9 +117,7 @@ const decode = (ui8, at, map) => {
       return value;
     }
     case REGEXP: {
-      const name = decode(ui8, at, map);
-      const flags = decode(ui8, at, map);
-      const value = new RegExp(name, flags);
+      const value = new RegExp(decode(ui8, at, map), decode(ui8, at, map));
       map.set(i, value);
       return value;
     }
@@ -141,10 +135,9 @@ const decode = (ui8, at, map) => {
 
 /**
  * @param {Uint8Array<ArrayBuffer>} ui8
- * @param {Cache} [map]
  * @returns
  */
-export default (ui8, map = new Map) => {
+export default ui8 => {
   const at = /** @type {Position} */({ i: 0 });
-  return decode(ui8, at, map);
+  return decode(ui8, at, new Map);
 };
