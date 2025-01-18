@@ -248,7 +248,7 @@ const b = decode(encodedStuff, myCache); // any with ⚠️ same references!
 If a `cache` optional argument is passed, multiple decodings will be faster if the original was already decoded but careful there, that means stored references from previous *decode* operations will be revealed directly as direct references to any other previous *decoded* variable.
 
 > [!IMPORTANT]
-> If unique identity matters on `decode`, do not pass a `cache` argument or previous decoded references will have shared underlying data to be worry about!
+> If unique identity matters on `decode`, do not pass a `cache` argument or previously decoded references will have shared underlying data to be worry about!
 
 
 > [!IMPORTANT]

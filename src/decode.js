@@ -18,7 +18,8 @@ import {
   DATE,
 } from './constants.js';
 
-import { ui32a, ui8a } from './shared.js';
+import { fromASCII, fromCharCode } from './utils/ascii.js';
+import { fromLength } from './utils/length.js';
 
 /** @typedef {Map<number,any>} Cache */
 
@@ -27,33 +28,7 @@ import { ui32a, ui8a } from './shared.js';
  * @property {number} i
  */
 
-const { fromCharCode } = String;
-
 const decoder = new TextDecoder;
-
-/**
- * @param {Uint8Array} ui8
- * @param {Position} at
- * @returns
- */
-const fromLength = (ui8, at) => {
-  ui32a[0] = 0;
-  for (let i = 0, length = ui8[at.i++]; i < length; i++)
-    ui8a[i] = ui8[at.i++];
-  return ui32a[0];
-};
-
-/**
- * @param {Uint8Array} ui8
- * @param {Position} at
- * @returns
- */
-const number = (ui8, at) => {
-  const length = fromLength(ui8, at);
-  const start = at.i;
-  const end = (at.i += length);
-  return fromCharCode(...ui8.slice(start, end));
-};
 
 /**
  * @param {Uint8Array} ui8
@@ -95,13 +70,13 @@ const decode = (ui8, at, map) => {
     }
     case NUMBER:
     case BIGINT: {
-      const string = number(ui8, at);
+      const string = fromASCII(ui8, at);
       const value = type === BIGINT ? BigInt(string) : parseFloat(string);
       map.set(i, value);
       return value;
     }
     case BIGINT: {
-      const string = number(ui8, at);
+      const string = fromASCII(ui8, at);
       const value = BigInt(string);
       map.set(i, value);
       return value;
@@ -117,7 +92,7 @@ const decode = (ui8, at, map) => {
       return buffer;
     }
     case DATE: {
-      const value = new Date(number(ui8, at));
+      const value = new Date(fromASCII(ui8, at));
       map.set(i, value);
       return value;
     }

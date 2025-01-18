@@ -1,7 +1,5 @@
 //@ts-check
 
-export const { BYTES_PER_ELEMENT } = Uint32Array;
-
 /**
  * @param {string} c
  * @returns

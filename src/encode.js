@@ -1,7 +1,6 @@
 //@ts-check
 
 import {
-  BYTES_PER_ELEMENT,
   NULL,
   BOOLEAN,
   NUMBER,
@@ -22,7 +21,8 @@ import {
   DATE,
 } from './constants.js';
 
-import { ui32a, ui8a } from './shared.js';
+import { toASCII } from './utils/ascii.js';
+import { toLength } from './utils/length.js';
 
 /** @typedef {Map<any,number[]>} Cache */
 
@@ -30,7 +30,7 @@ const { isArray } = Array;
 const { toStringTag } = Symbol;
 const { entries, getPrototypeOf } = Object;
 
-const TypedArray = getPrototypeOf(ui8a.constructor);
+const TypedArray = getPrototypeOf(Uint8Array);
 
 const TypeOf = {
   undefined: UNDEFINED,
@@ -45,42 +45,12 @@ const TypeOf = {
 
 /**
  * @param {number} type
- * @param {number} length
- * @returns
- */
-const asLength = (type, length) => {
-  const result = [type, 0];
-  if (length) {
-    ui32a[0] = length;
-    let i = BYTES_PER_ELEMENT;
-    while (i && ui8a[i - 1] === 0) i--;
-    result[1] = i;
-    result.push(...ui8a.slice(0, i));
-  }
-  return result;
-};
-
-/**
- * @param {number} type
  * @param {Uint8Array} value
  * @returns
  */
 const asUint8Array = (type, value) => {
-  const result = asLength(type, value.length);
+  const result = toLength(type, value.length);
   result.push(...value);
-  return result;
-};
-
-/**
- * @param {number} type
- * @param {string} value
- * @returns
- */
-const number = (type, value) => {
-  const { length } = value;
-  const result = asLength(type, length);
-  for (let i = 0; i < length; i++)
-    result.push(value.charCodeAt(i));
   return result;
 };
 
@@ -91,10 +61,16 @@ const number = (type, value) => {
  */
 const array = (value, ui8, map) => {
   const { length } = value;
-  ui8.push(...asLength(ARRAY, length));
+  ui8.push(...toLength(ARRAY, length));
   for (let i = 0; i < length; i++)
     encode(value[i], ui8, map, true);
 };
+
+/**
+ * @param {ArrayBuffer} value
+ * @returns
+ */
+const buffer = value => asUint8Array(BUFFER, new Uint8Array(value));
 
 /**
  * @param {any} value
@@ -114,7 +90,7 @@ const object = (value, ui8, map) => {
     }
   }
   if (length)
-    ui8.push(...asLength(OBJECT, length), ...pairs);
+    ui8.push(...toLength(OBJECT, length), ...pairs);
   else
     ui8.push(OBJECT, 0);
 };
@@ -125,7 +101,7 @@ const object = (value, ui8, map) => {
  * @param {Cache} map
  */
 const recursive = (value, ui8, map) => {
-  map.set(value, asLength(RECURSIVE, ui8.length));
+  map.set(value, toLength(RECURSIVE, ui8.length));
 };
 
 /**
@@ -134,33 +110,33 @@ const recursive = (value, ui8, map) => {
  * @returns
  */
 const canSerialize = (value, asNull) => {
-  const result = /** @type {[boolean,number]} */([true, TypeOf[typeof value]]);
-  switch (result[1]) {
+  let OK = true, type = TypeOf[typeof value];
+  switch (type) {
     case SYMBOL:
     case FUNCTION:
     case UNDEFINED:
-      if (asNull) result[1] = NULL;
-      else result[0] = false;
+      if (asNull) type = NULL;
+      else OK = false;
       break;
     case OBJECT:
       if (value) {
         if (value.constructor === Object) {}
-        else if (isArray(value)) result[1] = ARRAY;
-        else if (value instanceof ArrayBuffer) result[1] = BUFFER;
-        else if (value instanceof Date) result[1] = DATE;
-        else if (value instanceof Map) result[1] = MAP;
-        else if (value instanceof Set) result[1] = SET;
-        else if (value instanceof Error) result[1] = ERROR;
-        else if (value instanceof RegExp) result[1] = REGEXP;
+        else if (isArray(value)) type = ARRAY;
+        else if (value instanceof ArrayBuffer) type = BUFFER;
+        else if (value instanceof Date) type = DATE;
+        else if (value instanceof Map) type = MAP;
+        else if (value instanceof Set) type = SET;
+        else if (value instanceof Error) type = ERROR;
+        else if (value instanceof RegExp) type = REGEXP;
         else if (
           value instanceof TypedArray ||
           value instanceof DataView
-        ) result[1] = TYPED;
+        ) type = TYPED;
       }
-      else result[1] = NULL;
+      else type = NULL;
       break;
   }
-  return result;
+  return [OK, type];
 };
 
 const encoder = new TextEncoder;
@@ -202,7 +178,7 @@ const encode = (value, ui8, map, asNull) => {
       case NUMBER:
       case BIGINT: {
         recursive(value, ui8, map);
-        ui8.push(...number(type, String(value)));
+        ui8.push(...toASCII(type, String(value)));
         break;
       }
       case BOOLEAN: {
@@ -215,12 +191,12 @@ const encode = (value, ui8, map, asNull) => {
       }
       case BUFFER: {
         recursive(value, ui8, map);
-        ui8.push(...asUint8Array(BUFFER, new Uint8Array(value)));
+        ui8.push(...buffer(value));
         break;
       }
       case DATE: {
         recursive(value, ui8, map);
-        ui8.push(...number(DATE, value.toISOString()));
+        ui8.push(...toASCII(DATE, value.toISOString()));
         break;
       }
       case MAP:
@@ -253,7 +229,7 @@ const encode = (value, ui8, map, asNull) => {
           recursive(value, ui8, map);
           ui8.push(TYPED);
           encode(Class, ui8, map, false);
-          ui8.push(...asUint8Array(BUFFER, new Uint8Array(value.buffer)));
+          ui8.push(...buffer(value.buffer));
         }
         break;
       }
