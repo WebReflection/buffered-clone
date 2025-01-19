@@ -12,24 +12,25 @@ export const fromLength = (ui8, at) => {
   return value;
 };
 
-const { BYTES_PER_ELEMENT } = Uint32Array;
-const buffer = new ArrayBuffer(BYTES_PER_ELEMENT);
+const buffer = new ArrayBuffer(Uint32Array.BYTES_PER_ELEMENT);
 const ui32a = new Uint32Array(buffer);
 const ui8a = new Uint8Array(buffer);
 
 /**
+ * @param {number[]} ui8
  * @param {number} type
  * @param {number} length
  * @returns
  */
-export const toLength = (type, length) => {
-  const result = [type, 0];
-  if (length) {
+export const toLength = (ui8, type, length) => {
+  let result = 0;
+  if (length < 1) ui8.push(type, result);
+  else if (length < (1 << 8)) ui8.push(type, (result = 1), length);
+  else {
     ui32a[0] = length;
-    let i = BYTES_PER_ELEMENT;
-    while (i && ui8a[i - 1] === 0) i--;
-    result[1] = i;
-    result.push(...ui8a.slice(0, i));
+    if (ui8a[3]) ui8.push(type, (result = 4), ...ui8a);
+    else if (ui8a[2]) ui8.push(type, (result = 3), ui8a[0], ui8a[1], ui8a[2]);
+    else ui8.push(type, (result = 2), ui8a[0], ui8a[1]);
   }
   return result;
 };

@@ -12,20 +12,17 @@ export { fromCharCode };
  */
 export const fromASCII = (ui8, at) => {
   const length = fromLength(ui8, at);
-  const start = at.i;
-  const end = (at.i += length);
-  return fromCharCode(...ui8.slice(start, end));
+  return fromCharCode(...ui8.slice(at.i, (at.i += length)));
 };
 
 /**
+ * @param {number[]} ui8
  * @param {number} type
  * @param {string} value
- * @returns
  */
-export const toASCII = (type, value) => {
+export const toASCII = (ui8, type, value) => {
   const { length } = value;
-  const result = toLength(type, length);
+  toLength(ui8, type, length);
   for (let i = 0; i < length; i++)
-    result.push(value.charCodeAt(i));
-  return result;
+    ui8.push(value.charCodeAt(i));
 };

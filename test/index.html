@@ -22,7 +22,7 @@
       literally: ['any', 'supported', 'type'],
       recursion: true,
       bigint: 1n,
-      numbers: [1, -2, 3],
+      numbers: [1, -2, 3, () => {}, 4, Symbol(), 5, undefined, 6],
       map: new Map([['of', 'course']]),
       set: new Set(['sure', 'thing']),
       regexp: /a[s-w]ell/gm,
@@ -30,6 +30,10 @@
       typedArray: new Int32Array(1),
       dataView: new DataView(buffer),
       buffer: buffer,
+      // ignored
+      undefined: void 0,
+      method() {},
+      symbol: Symbol(),
     });
 
     console.log(encoded);
