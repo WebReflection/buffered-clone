@@ -56,12 +56,12 @@ target.postMessage(encoded, [encoded.buffer]);
 
 This section describes how values gets converted into their own binary format, as long as their *type* is recognized by this library.
 
-> [!NOTE]
-> If other *Programming Languages* would like to follow this specification, there is no need to support all types supported in here. As a matter of fact, *ARRAY*, *BOOLEAN*, *NULL*, *NUMBER*, *OBJECT* and *STRING*, among with the optional *RECURSIVE* logic, would be enough to fully support **JSON** specifications in both serializing and de-serializing data so that, as long as serialized *types* are universally understood across implementations, this project allows any *PL* to communicate with each other with ease and, most importantly, with raw decoding performance in mind.
-
 ### Types
 
 Both *JSON* and *StructuredClone* are supported, where former types could potentially work across different environments.
+
+> [!NOTE]
+> If other *Programming Languages* would like to follow this specification, there is no need to support all types supported in here. As a matter of fact, *ARRAY*, *BOOLEAN*, *NULL*, *NUMBER*, *OBJECT* and *STRING*, among with the optional *RECURSIVE* logic, would be enough to fully support **JSON** specifications in both serializing and de-serializing data so that, as long as serialized *types* are universally understood across implementations, this project allows any *PL* to communicate with each other with ease and, most importantly, with raw decoding performance in mind.
 
 ##### JSON types
 
