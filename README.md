@@ -1,5 +1,7 @@
 # buffered-clone
 
+[![Coverage Status](https://coveralls.io/repos/github/WebReflection/buffered-clone/badge.svg?branch=main)](https://coveralls.io/github/WebReflection/buffered-clone?branch=main) 
+
 <sup>**Social Media Photo by [Ries Bosch](https://unsplash.com/@ries_bosch) on [Unsplash](https://unsplash.com/)**</sup>
 
 A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#supported_types) into a binary format.
@@ -102,15 +104,19 @@ Everything else is flagged as *parsed* and it will return a `RECURSIVE` detail s
 
 #### About `Length(value)`
 
-Currently, each complex value can have up to a *Uint32* `length`, roughly *4GB of data*, but because the buffer is based on a *Uint8* view, such length needs to be distributed in an optimized way, so that a *length* is always represented by the amount of bytes to read and retrieve their values.
+Currently, each complex value can have up to a *Uint32* `length`, roughly *4GB of data*, but because the buffer is based on a *Uint8* view, such length needs to be distributed in an optimized way, so that a *length* is always represented by the amount of bytes to read and retrieve their values, granting 1 to max 5 bytes are needed to represent such length.
 
 ```js
-Length(0);                // [0]
-Length(255);              // [1, 255]
-Length(256);              // [2, 0, 1]
+Length(0);        // [0]              // 1 byte
+Length(255);      // [1, 255]         // 2 bytes
+Length(256);      // [2, 0, 1]        // 3 bytes
+Length(1 << 16);  // [3, 0, 0, 1]     // 4 bytes
+Length(1 << 24);  // [4, 0, 0, 0, 1]  // 5 bytes
 ```
 
-The simplified way such length is converted internally is through a shared *buffer* between a `Uint32Array` and a `Uint32Array`.
+This way the buffer is usually more compact and it will scale, potentially, to "*infinite*" length in the future without compromising performance and space of common length.
+
+The simplified way such length can be converted, or visualized, is through a shared *buffer* between a `Uint32Array` and a `Uint32Array`.
 
 ```js
 const { BYTES_PER_ELEMENT } = Uint32Array;  // 4
@@ -128,8 +134,9 @@ ui32a[0] = 256;
 To **compute the length** a loop from `BYTES_PER_ELEMENT` to `0` checks if the *uit8a* reference has any value in it. If that's not the case, there is no need to add extra bytes to the resulting buffer.
 
 ```js
-// ℹ️ length computation example
-// based on previous ui32a and ui8a references
+// ℹ️ length computation *example* based on previous
+// ui32a and ui8a references
+// @see src/utils/length.js for actual implementation
 const Length = length => {
   const result = [length];
   // ignore length zero as there's nothing to do
@@ -153,6 +160,7 @@ const Length = length => {
 
 ```js
 // ℹ️ retrieve the length while crawling the buffer
+// @see src/utils/length.js for actual implementation
 const fromLength = (ui8View, at) => {
   let value = 0;
   // loop from 0 to the [0-4] length stored at current position
@@ -162,8 +170,6 @@ const fromLength = (ui8View, at) => {
   return value;
 };
 ```
-
-Last, but not least, the current *Uint32* length logic, based over a *Uint8* storage, is entirely **future proof**, so that eventually a buffer could be upgraded to a *Uint64* logic in the future without changing anything else around.
 
 #### About `ASCIIString(value)`
 
@@ -195,9 +201,9 @@ In *JS* case, that is `new TextEncoder().encode(string)` which produces already 
   * **BUFFER** has its `type`, `length` and all its values after: `[66, ...Length(buffer.length), ...buffer]`
   * **DATE** has its `type` and value stored as *ASCIIString*: `[68, ....Length(ASCIIString(date.toISOString())), ...ASCIIString(date.toISOString())]`
   * **ERROR** has its `type`, its `name` and its `message`: `[101, ...encode(error.name), ...encode(error.message)]`
-  * **MAP** has its `type` and its content stored as *key* / *value* pairs out of an array: `[77, ...array([...map])]`
+  * **MAP** has its `type`, *key* / *value* entries length, and each *entry* encoded after: `[77, ...Length(kvEntries), ...kvEntries]`. Please note that entries are not grouped as `[k, v]` arrays, just as `k` and then `v`. In *JS*, that would look like `[77, 1, 4, ...encode('a'), ...encode(1), ...encode('b'), ...encode(2)]` for a *Map* like `new Map([['a', 1], ['b', 2]])`. This way the array space needed to group keys and values is fully absent from the resulting buffer.
   * **REGEXP** has its `type` and both its `source` and `flags` stored: `[82, ...encode(re.source), ...encode(re.flags)]`
-  * **SET** has its `type` and its content stored as an array of *values*: `[83, ...array([...set])]`
+  * **SET** , similarly to a *Map*, has its `type`, its values length and each *value* encoded right after: `[83, ...Length(values), ...values]`.
   * **TYPED** has its `type`, its typed *Class name* and its buffer stored as it is: `[84, ...encode(ref[Symbol.toStringTag]), ...ref.buffer]`. Please note that **DataView** references are handled exactly the same way!
 
 - - -
@@ -206,58 +212,34 @@ In *JS* case, that is `new TextEncoder().encode(string)` which produces already 
 
 Both `encode` and `decode` abilities are modules a part, grouped only by the *main* entry point but `buffered-clone/encode` and `buffered-clone/decode` wll provide the minimal amount of code needed to make this module work.
 
-### BufferedClone.`encode(any[, cache]):Uint8Array`
+### BufferedClone.`encode(any):Uint8Array`
 
-This utility is able to encode any *StructuredClone* compatible data so that `function`, `symbol`, or `undefined`, will be simply ignored.
+This utility is able to encode any *StructuredClone* compatible data so that `function`, `symbol`, or `undefined`, will be simply ignored while `NaN` or non *finite* numbers will be converted as `null` just like *JSON* does.
 
-Differently from `structuredClone` though, this module does not *throw* if data can't be serialized, more aligned with the feature, and success, `JSON` had to date across platforms.
+Differently from `structuredClone`, this module does not *throw* if data can't be serialized, more aligned with the feature, ease, and success `JSON` had to date across platforms.
 
 ```js
 import encode from 'buffered-clone/encode';
 
 encode(anything); // Uint8Array<ArrayBuffer>
-
-const myCache = new Map;
-const a = encode(anything, myCache); // Uint8Array<ArrayBuffer>
-const b = encode(anything, myCache); // Uint8Array<ArrayBuffer>
 ```
 
-If a `cache` optional argument is passed, multiple encodings will be faster when potentially multiple same references used before are in place.
-
-> [!IMPORTANT]
-> If you pass your own *cache* it is entirely up to you to `cache.clear()` it from time to time, otherwise all references, including strings or numbers, that passed through it will bloat the *RAM*
-
-### BufferedClone.`decode(Uint8Array<ArrayBuffer>[, cache]):any`
+### BufferedClone.`decode(Uint8Array<ArrayBuffer>):any`
 
 This utility is able to decode anything that was previously encoded via this library.
 
-It will return a fresh new object out of the underlying buffer and it could, eventually, use a *cache* too:
+It will return a fresh new value out of the underlying buffer:
 
 ```js
 import decode from 'buffered-clone/decode';
 
 decode(encodedStuff); // any
-
-const myCache = new Map;
-const a = decode(encodedStuff, myCache); // any
-const b = decode(encodedStuff, myCache); // any with ⚠️ same references!
 ```
-
-If a `cache` optional argument is passed, multiple decodings will be faster if the original was already decoded but careful there, that means stored references from previous *decode* operations will be revealed directly as direct references to any other previous *decoded* variable.
-
-> [!IMPORTANT]
-> If unique identity matters on `decode`, do not pass a `cache` argument or previously decoded references will have shared underlying data to be worry about!
-
-
-> [!IMPORTANT]
-> As it is for `encode`, you are in charge of `cache.clear()` from time to time or all references in there will be kept "*forever*".
-
-That's it, you can decide on occasions *when* to pass that optional `cache` but the rule of thumbs is that you shouldn't, also because performance in here should be awesome regardless while *decoding* any buffer.
 
 - - -
 
 ## F.A.Q.
 
   * **why not [BSON](https://en.wikipedia.org/wiki/BSON)?** - because "*BSON originated in 2009*" so it's old. I don't mean to state it's broken, outdated, not fast or anything, I just wanted a fresh start with *Web* constraints and features in mind and that is *StructuredClone*, because *BSON*, as example, is incapable of recursion while here I have **recursion as first citizen**. On the other hand, buffers in here are usually much smaller than buffers in *BSON* and mostly because of the recursion algorithm, but also because of the way all stuff is serialized, with `Length` being a major player in that space 😎
-  * **wasn't [@ungap/structured-clone](https://github.com/ungap/structured-clone#readme) there yet?** - sort of ... the way I've shaped that project is a JS way only and based on *JSON* premises ... after [discussing a lot](https://github.com/DallasHoff/sqlocal/issues/39#issuecomment-2594628800) with other people involved in *serialization* though, it turned out the bottleneck to communicate across threads is the `postMessage` dance itself. Here I wanted to explore the ability to transfer buffers as they are, as opposite of using a smart library to drop recursion, to then `postMessage` it and then reveal such recursion on the other side. This module goal is to explore, and hopefully solve, all performance related issues to cross threads communication, in a way that scales to any programming language, or wireless protocols, as long as all specs are clear 😇
+  * **wasn't [@ungap/structured-clone](https://github.com/ungap/structured-clone#readme) there yet?** - sort of ... the way I've shaped that project is a JS way only and based on *JSON* premises ... after [discussing a lot](https://github.com/DallasHoff/sqlocal/issues/39#issuecomment-2594628800) with other people involved in *serialization* though, it turned out the bottleneck to communicate across threads is the `postMessage` dance itself. Here I wanted to explore the ability to transfer buffers as they are, as opposite of using a smart library to drop recursion, to then `postMessage` it and then reveal such recursion on the other side (double recursion algorithm involved due `postMessage` *MITM* presence). Accordingly, this module goal is to explore, and hopefully solve, all performance related issues to cross threads communication, in a way that scales to any programming language, or wireless protocols, as long as all specs are clear 😇
   * **wasn't [flatted](https://github.com/WebReflection/flatted#readme) the way?** - again, both *flatted* and my *structuredClone* polyfill are there to solve a *JS* only use case. Here there is an opportunity to solve cross *PL* communication through a buffer, including *WASM*, so that every other previous attempt of mine to fix *JSON* constraints can be consider futile when it comes to other *PL*s or envs. True that *flatted* offers both a *Python* and *PHP* module to recreate in those *PL*s the original data, but in here there is no such limitation in terms of target *PL*s so that even `C` or `C++` or `Rust` could provide their own `bufferedClone.decode(view)` ability 🥳
