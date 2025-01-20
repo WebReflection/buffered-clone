@@ -23,12 +23,18 @@ import { toLength } from './utils/length.js';
 
 /** @typedef {Map<any,number[]>} Cache */
 
+/**
+ * @typedef {object} Options
+ * @prop {'all' | 'some' | 'none'} recursion With `all`, the default, everything but `null`, `boolean` and empty `string` will be tracked recursively. With `some`, all primitives get ignored. With `none`, no recursion is ever tracked, leading to *maximum callstack* if present in the encoded data.
+ */
+
 const { isArray } = Array;
 const { isFinite } = Number;
 const { toStringTag } = Symbol;
 const { entries, getPrototypeOf } = Object;
 
 const TypedArray = getPrototypeOf(Uint8Array);
+const encoder = new TextEncoder;
 
 /**
  * @param {any} value
@@ -96,182 +102,183 @@ const asValid = value => {
   }
 };
 
-/**
- * @param {number[]} ui8
- * @param {any} value
- * @param {Cache} map
- */
-const array = (ui8, value, map) => {
-  const { length } = value;
-  toLength(ui8, ARRAY, length);
-  for (let i = 0; i < length; i++)
-    encode(ui8, value[i], map, true);
-};
-
-/**
- * @param {number[]} ui8
- * @param {ArrayBuffer} value
- * @returns
- */
-const buffer = (ui8, value) => {
-  asUint8Array(ui8, BUFFER, new Uint8Array(value));
-};
-
-/**
- * @param {number[]} ui8
- * @param {number} type
- * @param {any[]} values
- * @param {Cache} map
- */
-const object = (ui8, type, values, map) => {
-  const { length } = values;
-  if (length) {
-    toLength(ui8, type, length);
-    for (let i = 0; i < length; i++)
-      encode(ui8, values[i], map);
-  }
-  else
-    ui8.push(type, 0);
-};
-
-/**
- * @param {number[]} ui8
- * @param {any} value
- * @param {Cache} map
- */
-const recursive = (ui8, value, map) => {
-  const r = [];
-  toLength(r, RECURSIVE, ui8.length);
-  map.set(value, r);
-};
-
-/**
- * @param {number[]} ui8
- * @param {number} type
- * @param {any} key
- * @param {any} value
- * @param {Cache} map
- */
-const simple = (ui8, type, key, value, map) => {
-  ui8.push(type);
-  encode(ui8, key, map);
-  encode(ui8, value, map);
-};
-
-const encoder = new TextEncoder;
-
-/**
- * @param {number[]} ui8
- * @param {any} value
- * @param {Cache} map
- * @param {boolean} [asNull=false]
- */
-const encode = (ui8, value, map, asNull = false) => {
-  const known = map.get(value);
-  if (known) {
-    ui8.push(...known);
-    return;
+class Is {
+  /**
+   * @param {Options} options
+   */
+  constructor(options) {
+    const r = options.recursion;
+    /** @type {0 | 1 | 2} */
+    this.r = r === 'all' ? 2 : (r === 'none' ? 0 : 1);
+    /** @type {number[]} */
+    this.a = [];
+    /** @type {Cache?} */
+    this.m = this.r > 0 ? new Map : null;
   }
 
-  const [OK, type] = asSerialized(value, asNull);
-  if (OK) {
-    switch (type) {
-      case ARRAY: {
-        recursive(ui8, value, map);
-        array(ui8, value, map);
-        break;
-      }
-      case OBJECT: {
-        recursive(ui8, value, map);
-        const values = [];
-        for (const [k, v] of entries(value)) {
-          if (asValid(v)) values.push(k, v);
+  /**
+   * @param {any} value
+   * @param {boolean} asNull
+   */
+  encode(value, asNull) {
+    const known = this.r > 0 && /** @type {Cache} */(this.m).get(value);
+    if (known) {
+      this.a.push(...known);
+      return;
+    }
+
+    const [OK, type] = asSerialized(value, asNull);
+    if (OK) {
+      switch (type) {
+        case ARRAY: {
+          this.array(value);
+          break;
         }
-        object(ui8, OBJECT, values, map);
-        break;
-      }
-      case STRING: {
-        if (value.length) {
-          recursive(ui8, value, map);
-          asUint8Array(ui8, STRING, encoder.encode(value));
+        case OBJECT: {
+          this.track(0, value);
+          const values = [];
+          for (const [k, v] of entries(value)) {
+            if (asValid(v)) values.push(k, v);
+          }
+          this.object(OBJECT, values);
+          break;
         }
-        else ui8.push(STRING, 0);
-        break;
-      }
-      case NUMBER:
-      case BIGINT: {
-        recursive(ui8, value, map);
-        toASCII(ui8, type, String(value));
-        break;
-      }
-      case BOOLEAN: {
-        ui8.push(BOOLEAN, value ? 1 : 0);
-        break;
-      }
-      case NULL: {
-        ui8.push(NULL);
-        break;
-      }
-      case BUFFER: {
-        recursive(ui8, value, map);
-        buffer(ui8, value);
-        break;
-      }
-      case DATE: {
-        recursive(ui8, value, map);
-        toASCII(ui8, DATE, value.toISOString());
-        break;
-      }
-      case MAP: {
-        recursive(ui8, value, map);
-        const values = [];
-        for (const [k, v] of value) {
-          if (asValid(k) && asValid(v)) values.push(k, v);
+        case STRING: {
+          if (value.length) {
+            this.track(1, value);
+            asUint8Array(this.a, STRING, encoder.encode(value));
+          }
+          else this.a.push(STRING, 0);
+          break;
         }
-        object(ui8, MAP, values, map);
-        break;
-      }
-      case SET: {
-        recursive(ui8, value, map);
-        const values = [];
-        for (const v of value) {
-          if (asValid(v)) values.push(v);
+        case NUMBER:
+        case BIGINT: {
+          this.track(1, value);
+          toASCII(this.a, type, String(value));
+          break;
         }
-        object(ui8, SET, values, map);
-        break;
-      }
-      case ERROR: {
-        const { name, message } = value;
-        if (name in globalThis) {
-          recursive(ui8, value, map);
-          simple(ui8, ERROR, name, message, map);
+        case BOOLEAN: {
+          this.a.push(BOOLEAN, value ? 1 : 0);
+          break;
         }
-        break;
-      }
-      case REGEXP: {
-        recursive(ui8, value, map);
-        simple(ui8, REGEXP, value.source, value.flags, map);
-        break;
-      }
-      case TYPED: {
-        const Class = value[toStringTag];
-        if (Class in globalThis) {
-          recursive(ui8, value, map);
-          simple(ui8, TYPED, Class, value.buffer, map);
+        case NULL: {
+          this.a.push(NULL);
+          break;
         }
-        break;
+        case BUFFER: {
+          this.buffer(value);
+          break;
+        }
+        case DATE: {
+          this.track(0, value);
+          toASCII(this.a, DATE, value.toISOString());
+          break;
+        }
+        case MAP: {
+          this.track(0, value);
+          const values = [];
+          for (const [k, v] of value) {
+            if (asValid(k) && asValid(v)) values.push(k, v);
+          }
+          this.object(MAP, values);
+          break;
+        }
+        case SET: {
+          this.track(0, value);
+          const values = [];
+          for (const v of value) {
+            if (asValid(v)) values.push(v);
+          }
+          this.object(SET, values);
+          break;
+        }
+        case ERROR: {
+          this.track(0, value);
+          this.simple(ERROR, value.name, value.message);
+          break;
+        }
+        case REGEXP: {
+          this.track(0, value);
+          this.simple(REGEXP, value.source, value.flags);
+          break;
+        }
+        case TYPED: {
+          this.track(0, value);
+          this.simple(TYPED, value[toStringTag], value.buffer);
+          break;
+        }
       }
     }
   }
-};
+
+  /**
+   * @param {0 | 1 | 2} level
+   * @param {any} value
+   */
+  track(level, value) {
+    if (this.r > level) {
+      const r = [];
+      toLength(r, RECURSIVE, this.a.length);
+      /** @type {Cache} */(this.m).set(value, r);
+    }
+  }
+
+  /**
+   * @param {any[]} value
+   */
+  array(value) {
+    this.track(0, value);
+    this.null = true;
+    const { length } = value;
+    toLength(this.a, ARRAY, length);
+    for (let i = 0; i < length; i++)
+      this.encode(value[i], true);
+    this.null = false;
+  }
+
+  /**
+   * @param {ArrayBuffer} value
+   */
+  buffer(value) {
+    this.track(0, value);
+    asUint8Array(this.a, BUFFER, new Uint8Array(value));
+  }
+
+  /**
+   * @param {number} type
+   * @param {any[]} values
+   */
+  object(type, values) {
+    const { length } = values;
+    if (length) {
+      toLength(this.a, type, length);
+      for (let i = 0; i < length; i++)
+        this.encode(values[i], false);
+    }
+    else
+      this.a.push(type, 0);
+  }
+
+  /**
+   * @param {number} type
+   * @param {any} key
+   * @param {any} value
+   */
+  simple(type, key, value) {
+    this.a.push(type);
+    this.encode(key, false);
+    this.encode(value, false);
+  }
+}
 
 /**
  * @template T
  * @param {T extends undefined ? never : T extends Function ? never : T extends symbol ? never : T} value
+ * @param {Options?} options
  * @returns
  */
-export default value => {
-  const ui8 = [];
-  encode(ui8, value, new Map);
-  return new Uint8Array(ui8);
+export default (value, options = null) => {
+  const is = new Is({ recursion: 'all', ...options });
+  is.encode(value, false);
+  return new Uint8Array(is.a);
 };

@@ -24,6 +24,11 @@ import { fromLength } from './utils/length.js';
 /** @typedef {Map<number,any>} Cache */
 
 /**
+ * @typedef {object} Options
+ * @prop {'all' | 'some' | 'none'} recursion With `all`, the default, everything recursive will be tracked. With `some`, all primitives get ignored or fail if found as recursive. With `none`, no recursion is ever tracked and an error is thrown when any recursive data is found.
+ */
+
+/**
  * @typedef {Object} Position
  * @property {number} i
  */
@@ -31,28 +36,39 @@ import { fromLength } from './utils/length.js';
 const decoder = new TextDecoder;
 
 /**
+ * @param {number} i
+ */
+const throwOnRecursiveValue = i => {
+  throw new SyntaxError('Unexpected recursive value @ ' + i);
+};
+
+/**
  * @param {Uint8Array} ui8a
  * @param {Position} at
- * @param {Cache} map
+ * @param {Cache|Loophole} m
+ * @param {boolean} p
  * @returns
  */
-const decode = (ui8a, at, map) => {
+const decode = (ui8a, at, m, p) => {
   const i = at.i++;
   const type = ui8a[i];
   switch (type) {
-    case RECURSIVE: return map.get(fromLength(ui8a, at));
+    case RECURSIVE: {
+      const i = fromLength(ui8a, at);
+      return m.get(i) ?? throwOnRecursiveValue(i);
+    }
     case ARRAY: {
       const value = [];
-      map.set(i, value);
+      m.set(i, value);
       for (let i = 0, length = fromLength(ui8a, at); i < length; i++)
-        value.push(decode(ui8a, at, map));
+        value.push(decode(ui8a, at, m, p));
       return value;
     }
     case OBJECT: {
       const value = {};
-      map.set(i, value);
+      m.set(i, value);
       for (let i = 0, length = fromLength(ui8a, at); i < length; i += 2)
-        value[decode(ui8a, at, map)] = decode(ui8a, at, map);
+        value[decode(ui8a, at, m, p)] = decode(ui8a, at, m, p);
       return value;
     }
     case STRING: {
@@ -61,7 +77,7 @@ const decode = (ui8a, at, map) => {
         const start = at.i;
         const end = (at.i += length);
         const value = decoder.decode(ui8a.slice(start, end));
-        map.set(i, value);
+        if (p) m.set(i, value);
         return value;
       }
       return '';
@@ -70,7 +86,7 @@ const decode = (ui8a, at, map) => {
     case BIGINT: {
       const string = fromASCII(ui8a, at);
       const value = type === BIGINT ? BigInt(string) : parseFloat(string);
-      map.set(i, value);
+      if (p) m.set(i, value);
       return value;
     }
     case BOOLEAN: return ui8a[at.i++] === 1;
@@ -80,43 +96,43 @@ const decode = (ui8a, at, map) => {
       const start = at.i;
       const end = (at.i += length);
       const { buffer } = ui8a.slice(start, end);
-      map.set(i, buffer);
+      m.set(i, buffer);
       return buffer;
     }
     case DATE: {
       const value = new Date(fromASCII(ui8a, at));
-      map.set(i, value);
+      m.set(i, value);
       return value;
     }
     case MAP: {
       const value = new Map;
-      map.set(i, value);
+      m.set(i, value);
       for (let i = 0, length = fromLength(ui8a, at); i < length; i += 2)
-        value.set(decode(ui8a, at, map), decode(ui8a, at, map));
+        value.set(decode(ui8a, at, m, p), decode(ui8a, at, m, p));
       return value;
     }
     case SET: {
       const value = new Set;
-      map.set(i, value);
+      m.set(i, value);
       for (let i = 0, length = fromLength(ui8a, at); i < length; i++)
-        value.add(decode(ui8a, at, map));
+        value.add(decode(ui8a, at, m, p));
       return value;
     }
     case ERROR: {
-      const Class = globalThis[decode(ui8a, at, map)];
-      const value = new Class(decode(ui8a, at, map));
-      map.set(i, value);
+      const Class = globalThis[decode(ui8a, at, m, p)];
+      const value = new Class(decode(ui8a, at, m, p));
+      m.set(i, value);
       return value;
     }
     case REGEXP: {
-      const value = new RegExp(decode(ui8a, at, map), decode(ui8a, at, map));
-      map.set(i, value);
+      const value = new RegExp(decode(ui8a, at, m, p), decode(ui8a, at, m, p));
+      m.set(i, value);
       return value;
     }
     case TYPED: {
-      const Class = globalThis[decode(ui8a, at, map)];
-      const value = new Class(decode(ui8a, at, map));
-      map.set(i, value);
+      const Class = globalThis[decode(ui8a, at, m, p)];
+      const value = new Class(decode(ui8a, at, m, p));
+      m.set(i, value);
       return value;
     }
     default: {
@@ -125,11 +141,30 @@ const decode = (ui8a, at, map) => {
   }
 };
 
+class Loophole {
+  /**
+   * @param {number} i
+   */
+  get(i) {
+    throwOnRecursiveValue(i);
+  }
+
+  /**
+   * @param {number} i
+   * @param {any} value
+   */
+  set(i, value) {
+    // do nothing
+  }
+}
+
 /**
  * @param {Uint8Array<ArrayBuffer>} ui8a
+ * @param {Options?} options
  * @returns
  */
-export default ui8a => {
+export default (ui8a, options) => {
   const at = /** @type {Position} */({ i: 0 });
-  return decode(ui8a, at, new Map);
+  const r = options?.recursion;
+  return decode(ui8a, at, r === 'none' ? new Loophole : new Map, r !== 'some');
 };
