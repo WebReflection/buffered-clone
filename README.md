@@ -212,7 +212,7 @@ In *JS* case, that is `new TextEncoder().encode(string)` which produces already 
 
 Both `encode` and `decode` abilities are modules a part, grouped only by the *main* entry point but `buffered-clone/encode` and `buffered-clone/decode` wll provide the minimal amount of code needed to make this module work.
 
-### BufferedClone.`encode(any):Uint8Array`
+### BufferedClone.`encode(value:any, options?:Options):Uint8Array`
 
 This utility is able to encode any *StructuredClone* compatible data so that `function`, `symbol`, or `undefined`, will be simply ignored while `NaN` or non *finite* numbers will be converted as `null` just like *JSON* does.
 
@@ -222,9 +222,16 @@ Differently from `structuredClone`, this module does not *throw* if data can't b
 import encode from 'buffered-clone/encode';
 
 encode(anything); // Uint8Array<ArrayBuffer>
+
+// ignore recursion on primitives
+encode(anything, { recursion: 'some' });
+// throw on recursion (JSON strictness)
+encode(anything, { recursion: 'none' });
 ```
 
-### BufferedClone.`decode(Uint8Array<ArrayBuffer>):any`
+The `Options` type currently has just one `recursion` field which value can be `'all'`, the default, `'some'` or `'none'`.
+
+### BufferedClone.`decode(ui8a:Uint8Array<ArrayBuffer>, options?:Options):any`
 
 This utility is able to decode anything that was previously encoded via this library.
 
@@ -234,7 +241,23 @@ It will return a fresh new value out of the underlying buffer:
 import decode from 'buffered-clone/decode';
 
 decode(encodedStuff); // any
+
+// throws if recursion is found on primitives
+decode(encodedStuff, { recursion: 'some' });
+
+// throws on any recursion found while decoding
+decode(encodedStuff, { recursion: 'none' });
 ```
+
+The `Options` type simply mimics what `encode` used and it's `all` by default. With `none`, there is no map operation at all so it's less memory greedy on big streams, but it will throw out of the box if any recursion has been found within the encoded data.
+
+The `recursion: "none"` is hence ideal for use cases such as:
+
+  * *SQLite* or other DBs returned values, as each row is an object a part
+  * huge streams of data where any single piece of the buffer can be handled a part without needing to keep track of every other previously decoded vale
+
+> [!NOTE]
+> On the *JS* side, `some` or `all` makes little difference but no other projects takes special care of strings and numbers so I might decide to change the default to `some`, instead of `all` as it is now, to make it easier for other interested *PLs* to provide their own simplified encoding too.
 
 - - -
 
@@ -247,4 +270,4 @@ decode(encodedStuff); // any
     * the `length` of *arrays*, *objects*, *maps*, *sets* or any other type with variadic length is the first information after the *type*, meaning that **differently from JSON** one does not need to reach the end of anything, it can just keep sending on demand whatever it is that is meant to be sent
     * the `RECURSIVE` type is linear in memory so that it's not possible to encounter a *recursive* type that has not been already parsed. Keeping a reference of that *index* and resulting object is also cheaper than keeping the whole buffer in memory to re-recurse and/or create a new value each time but it's also a one-off operation done while streaming and the memory can be freed at the end
     * this is actually my next step for this module: provide a `buffered-clone/stream` variant that uses exact same logic but it triggers in order all values as these arrive, meaning it can play well with `CompressionStream` or `DecompressionStream` too ... just wait for it!
-  * **could I use a `toJSON` like method?** - currently **NO, but** I am thinking about a special symbol such as `toBufferedClone` that if present in complex references could decide what to return instead of pre-orchestrating that *AOT*, simply because checking recursively potentially huge objects is not cheap so "*when in Rome*" I think I should simplify that dance as I need it myself on occasions
+  * **could I use a `toJSON` like method?** - currently **NO, but** I am thinking about a special symbol such as `toBufferedClone` that if present in complex references could decide what to return instead of pre-orchestrating that *AOT*, simply because checking recursively potentially huge objects is not cheap so "*when in Rome*" I think I should simplify that dance as I need it myself on occasions. See https://github.com/WebReflection/buffered-clone/issues/2 to discuss more this feature
