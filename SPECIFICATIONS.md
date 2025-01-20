@@ -1,0 +1,376 @@
+# Specifications
+
+This document goal is to explain how *encoding* and *decoding* works and each explained implementation is rather *meta* to simply there to make sense out of the current algorithm.
+
+There are two parts of the algorithm that are worth implementing and/or exploring: the **json** one and the **structured** one.
+
+Each *encoding* and *decoding* part will likely use the same **utilities** to satisfy the algorithm.
+
+## Encoding
+
+This section is to describe how things result into a buffer, starting from the shared *utilities* used across this specification.
+
+### Utilities
+
+#### ...
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Not a *typo* or a mistake in this specs, the `...` spread operator simply means that all *int8* values contained in that *array* would be added, one after the other, to the resulting *array* of *uint8* values.
+
+```js
+a = [1, 2]
+b = [3, 4]
+c = [...a, ...b]
+// c is now: [1, 2, 3, 4]
+```
+
+> [!NOTE]
+> This is part of native *JS* syntax and it's used in here to, hopefully, understand all operations *but* please note: in order to make my own *JS* implementation, I needed to avoid *recursive spread* operations to handle huge lists of values or data so, in short: be aware your implementation might need to pass the underlying reference around as opposite of keep spreading things all over!
+
+  </div>
+</details>
+
+#### length
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+The `length` is a dynamic *utf8* based representation of a length. The *dynamic* part is in the fact that such *length* can take 1 up to (currently) 5 bytes to be represented.
+
+The `target` in *length* is any target that provides its own `length` (or `len(target)`) and it's implicit, per specs, to ignore the target and consider only its returned *length* so that:
+
+```js
+length(0)             // [0]                // 1 byte
+length((1 << 8) - 1)  // [1, 255]           // 2 bytes
+length(1 << 8)        // [2, 0, 1]          // 3 bytes
+length(1 << 16)       // [3, 0, 0, 1]       // 4 bytes
+length(1 << 24)       // [4, 0, 0, 0, 1]    // 5 bytes
+
+// one day ...
+length(1 << 32)       // [5, 0, 0, 0, 0, 1] // 6 bytes
+length(1 << X)        // [5, ...uint8]      // X bytes
+```
+
+If the `target` is an *array*, its `array.length` (or `len(target)`) will be the value demoed in previous code and that is valid for any other other `target` that is accepted by this utility, in its *meta* representation.
+
+```js
+// practically speaking
+length([])  // result into [0]
+length([1]) // result into [1,1]
+// ... and so on ...
+```
+
+The reason the `length` has been shaped this way is:
+
+  * use the minimum amount of bytes (with boundaries) to represent a length, as opposite of using a minimum of 4 bytes to represent any (limited) integer up to `2^32 - 1`
+  * scale for any possible future where the *length* of the final *list* could be up to *64bit*, *128bit* or more
+
+If you have better suggestions to represent a *length* within boundaries so that decoding can still be just linear, non-future-hostile and never ambiguous, please file an issue to discuss your idea: thank you!
+
+  </div>
+</details>
+
+#### encode
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+When a serializable value is *encoded* it means that it returned an array of *uint8* compatible values.
+
+Each serializable value in this space has its own array representation as standalone, working, buffered view of its value.
+
+```js
+encode(true)        // [98, 1]
+encode(null)        // [0]
+encode(1)           // [110, 1, 1, 49]
+encode('a')         // [115, 1, 1, 97]
+encode(['a', null]) // [65, 1, 2, 115, 1, 1, 97, 0]
+```
+
+Accordingly, whenever `...encode(target)` is referenced in this space, it means *spreading* those *uint8* values across the resulting array of *uint8* values.
+
+  </div>
+</details>
+
+#### kv
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Any `kv(target)` should return a flat list of *key* / *value* pairs, where each *key* and *value* would be encoded following the proposed algorithm.
+
+```js
+const target = {"a", 1, "b": 2}
+
+kv(target);
+
+[
+  // ["a", 1] pair
+  ...encode('a'),
+  ...encode(1),
+  // ["b", 2] pair
+  ...encode('b'),
+  ...encode(2)
+]
+```
+
+An empty object or dictionary will have a *length* equal to zero so that just `[0]` would be its `kv` representation.
+
+The reason `kv` is not just an encoded *array* of *pairs* is that both *array* and *pairs* (as array) would take a consistent chunk of memory out of the resulting buffer to declare their *type* ane *length* in the making.
+
+If you have better suggestions to represent a *kv* within boundaries so that decoding can still be just linear, non-future-hostile and never ambiguous, please file an issue to discuss your idea: thank you!
+
+  </div>
+</details>
+
+#### list
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Any `list(target)` mentioned in this specs refers to an *array* of each *value* without the *array* initial overhead (that being its *type* and *length*).
+
+This utility is meant to help *array* creations without repeating, or re-calculating, its *type* or *length*:
+
+```js
+// `encode(target)` includes array type & length
+encode([1]) // [65, 1, 1, 110, 1, 1, 49]
+list([1])   //           [110, 1, 1, 49]
+            //            ^^^^^^^^^^^^^
+```
+
+In short, this utility helps creating *values* out of an *array* that knows its *length* already.
+
+  </div>
+</details>
+
+#### utf8
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Any `utf8(target)` in this space means that such *target* has been *utf-8* encoded as a string and its returning *uint8* chars are returned as an *array* of chars.
+
+```js
+// `utf8(target)` as string buffer (no type or length)
+utf8('a')     // [97]
+// `utf8(target)` as string buffer (no type or length)
+utf8('🥳')    // [240, 159, 165, 179]
+
+// encoded as `string` type with `length` 1
+encode('a')   // [115, 1, 1, 97]
+// encoded as `string` type with `length` 4
+encode('🥳')  // [115, 1, 4, 240, 159, 165, 179]
+```
+
+  </div>
+</details>
+
+#### ascii
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+> [!NOTE]
+> This utility is optional, accordingly with your PL that might, or might not, benefit from it. In the case it does not benefit from it, consider `ascii` a `utf8` **alias**.
+
+Whenever a *value* is known to contain just `[0-9TZ:.-]` chars in it, the *utf-8* conversion might be expensive for no gain, as it's clear we are within the [ASCII](https://en.wikipedia.org/wiki/ASCII) boundaries, which is all safe in a *uint8* constrained space.
+
+The list of *values* that fulfill this requirement are:
+
+  * **number**, because these are represented as *JSON* compatible values `-?[0-9]+(\\.[0-9]+)?`
+  * **bigint**, because these are just a `[0-9]+` range
+  * **date** values, because these won't escape the `^[0-9TZ:.-]+$` boundaries once converted to [ISO](https://en.wikipedia.org/wiki/ISO_8601) strings
+
+Accordingly, this *utility* is here only to hint that implementations might be more relaxed around the conversion, hopefully aiming at better performance without extra bloat.
+
+As it is for `utf8` utility, this one just produces results out of the box:
+
+```js
+// `ascii(target)` as string buffer (no type or length)
+ascii('a')  // [97]
+// `ascii(target)` as string buffer (no type or length)
+ascii(1)    // [49] // as '1'.charCodeAt(0) / ord(str(1))
+```
+
+> [!NOTE]
+> Beside *date* types, all *number* or *bigint* types get converted as string, simply because *JSON* standard has no limitation around the representation of a *number*, so that big integers among big floating numbers are all valid, so that doing it this way will cover not just *JS* capabilities around its primitive `number` kind, but potentially all other *PLs* that don't suffer same *JS* limitations around these.
+
+If you have better suggestions to represent any *date* or *number* so that decoding can still be just linear, non-future-hostile and never ambiguous, please file an issue to discuss your idea: thank you!
+  </div>
+</details>
+
+### JSON Types
+
+Coming from the official [JSON specifications])(https://www.json.org/json-en.html), all types in there are supported.
+
+#### object
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Objects are represented as such:
+
+```js
+[79, ...length(kv(object)), ...kv(object)]
+```
+
+Where `79` is the code associated to the char `O`.
+
+  </div>
+</details>
+
+#### array
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Arrays (lists/tuples) are represented as such:
+
+```js
+[65, ...length(array), ...list(array)]
+```
+
+Where `65` is the code associated to the char `A`.
+
+  </div>
+</details>
+
+#### string
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Strings are represented as such:
+
+```js
+[115, ...length(utf8(string)), ...utf8(string)]
+```
+
+Where `115` is the code associated to the char `s`.
+
+  </div>
+</details>
+
+#### number
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Numbers are represented as such:
+
+```js
+[110, ...length(ascii(number)), ...ascii(number)]
+```
+
+Where `110` is the code associated to the char `n`.
+
+  </div>
+</details>
+
+#### boolean
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Booleans are represented as such:
+
+```js
+// True
+[98, 1]
+
+// False
+[98, 0]
+```
+
+Where `9b` is the code associated to the char `b`.
+
+  </div>
+</details>
+
+#### nul
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Null values are represented as such:
+
+```js
+[0]
+```
+
+There is no letter associated to it: it's just `null`!
+
+  </div>
+</details>
+
+### Structured Types
+
+This specification goes beyond *JSON* types limitation, allowing both *recursion* and other types supported by the [structuredClone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types) *JS* types.
+
+
+#### recursive
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+*JSON* does not allow recursive operations, and it's also probably bloated in doing so ... meaning: it tracks all objects passed through its algorithm to eventually inform you that "*Converting circular structure to JSON at ....*" is not allowed:
+
+```js
+const a = []
+a.push(a)
+JSON.stringify(a)
+
+// Uncaught TypeError: Converting circular structure to JSON
+//   --> starting at object with constructor 'Array'
+//   --- index 0 closes the circle
+//   at JSON.stringify (<anonymous>)
+//   at <anonymous>:3:6
+```
+
+Now, don't get me wrong, I think that's lovely and everything, but if circular recursion can be tracked, behind the *JSON* algorithm, why shouldn't we take advantages around it instead?
+
+In short, this specification allows (currently) three kinds of resolution:
+
+  * `recursion: "all"` where both complex types and primitives, with the exception for `boolean`, `null`, or empty `string` types, are tracked
+  * `recursion: "some"` where all non *primitives* values, being that `bigint`, `boolean`, `number`, `null` or `string` type, won't be tracked by recursion
+  * `recursion: "none"` where no recursion is expected, ideal for *RAM* saving in both *encoding* and *decoding* strategies around this *encoding*:
+    * no *track* of values while encoding
+    * ideal for any *SQLite* or other *DBs* based results, where recursion is not a citizen at all across rows
+    * ideal for *WASM* to *JS* exchanges, when *recursion* is not expected to be a thing
+
+In short, when recursion is not needed both *encode* and *decode* operations should be aware of it, but when `some` or `all` is demanded, this specifications solve that in such way:
+
+```js
+const a = []
+a.push(a)
+
+encode(a) // [ 65, 1, 1, 114, 0 ]
+```
+
+That encoding specifies the *array* type, it's *length*, which is `1`, and its recursion type which is `114` plus the length of the returning index of the *uint8* *array* of values, where `a` was its first entry, hence `0`.
+
+This logic works for any recursive type but:
+
+  * both encoding and decoding should be aware *recursion* is in, by passing `recursion` value (`"all"`, `"some"` or `"none"` to both *encoding* and *decoding* operations)
+  * if data is encoded recursively, decoding it needs to be aware of, and if decoding does not accept the same level of recursion, everything will fail out of a thrown error
+
+This is the reason *recursion* is a specification *opt-in*:
+
+  * when enabled, the implementation must track every value that is being encoded, so that its index in the final array of bytes can find the value it refers to
+  * when enabled, the decoding part must be aware some recursion might happen, and track at each index stage, the current value that is being decoded
+
+For simplification and *RAM* sake, if no *recursion* is expected, `recursion: "none"` is all it's needed to satisfy these specifications, but when it's expected, both the *encoder* and the *decoder* must use extra steps while en/decoding:
+
+  * any value that is not `boolean`, `null`, or an empty `string`, must be tracked as recursive if `"all"` is the resolution
+  * any value that is not *primitive*, must be tracked as recursive if `"some"` is the resolution
+  * no recursive value should be allowed if `"none"` is the resolution!
+
+If this constraints are clear, recursive values are simply a `[114, ...length(currentUint8Array)]` type that can be passed along when any currently stored value has been already stored before.
+
+  </div>
+</details>
+
+## TO BE CONTINUED ...

@@ -54,6 +54,12 @@ target.postMessage(encoded, [encoded.buffer]);
 
 ## Specifications
 
+- - -
+
+**WIP** I am writing [a dedicated document for specifications](./SPECIFICATIONS.md).
+
+- - -
+
 This section describes how values gets converted into their own binary format, as long as their *type* is recognized by this library.
 
 ### Types
