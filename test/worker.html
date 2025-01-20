@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module">
+    import { encode, decode } from '../src/index.js';
+    import { data, verify } from './data.js';
+
+    const buffered = (recursion, ...rest) => result => {
+      verify(result);
+      p = Promise.withResolvers();
+      const name = 'buffered clone: ' + [recursion, ...rest].join(' ');
+      console.time(name);
+      const ui8a = encode(data, { recursion });
+      w.postMessage([name, ui8a, true], [ ui8a.buffer ]);
+      return p.promise;
+    };
+
+    // warm cache
+    for (let i = 0; i < 5; i++) {
+      structuredClone(data);
+      encode(data);
+    }
+
+    let w = new Worker('./worker.js', { type: 'module' });
+    w.addEventListener('message', ({ data: [name, value, toBeDecoded] }) => {
+      if (toBeDecoded) value = decode(value);
+      console.timeEnd(name);
+      p.resolve(value);
+    });
+
+    let p = Promise.withResolvers();
+    const name = 'structured clone';
+    console.time(name);
+    w.postMessage([name, data, false]);
+
+    p.promise.then(buffered('some')).then(buffered('all')).then(() => {
+      w.terminate();
+      w = new Worker('./worker-clone.js', { type: 'module' });
+      w.addEventListener('message', ({ data: [name, value, recursion] }) => {
+        if (recursion) value = decode(value, { recursion });
+        console.timeEnd(name);
+        p.resolve(value);
+      });
+      p = Promise.withResolvers();
+      const name = 'structured clone re-cloned';
+      console.time(name);
+      w.postMessage([name, data, false]);
+      p.promise.then(buffered('some', 're-cloned')).then(buffered('all', 're-cloned'));
+    });
+  </script>
+</head>
+</html>
