@@ -10,6 +10,11 @@ const assert = (result, expected) => {
   }
 };
 
+console.time('structuredClone');
+const structured = structuredClone(data);
+console.timeEnd('structuredClone');
+verify(structured);
+
 console.time('complex data');
 const converted = convert(data);
 console.timeEnd('complex data');

@@ -4,7 +4,7 @@
 
 <sup>**Social Media Photo by [Ries Bosch](https://unsplash.com/@ries_bosch) on [Unsplash](https://unsplash.com/)**</sup>
 
-A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#supported_types) into a binary format.
+A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported JS types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types) into a binary format.
 
 ```js
 import { encode, decode } from 'buffered-clone';
@@ -271,3 +271,4 @@ The `recursion: "none"` is hence ideal for use cases such as:
     * the `RECURSIVE` type is linear in memory so that it's not possible to encounter a *recursive* type that has not been already parsed. Keeping a reference of that *index* and resulting object is also cheaper than keeping the whole buffer in memory to re-recurse and/or create a new value each time but it's also a one-off operation done while streaming and the memory can be freed at the end
     * this is actually my next step for this module: provide a `buffered-clone/stream` variant that uses exact same logic but it triggers in order all values as these arrive, meaning it can play well with `CompressionStream` or `DecompressionStream` too ... just wait for it!
   * **could I use a `toJSON` like method?** - currently **NO, but** I am thinking about a special symbol such as `toBufferedClone` that if present in complex references could decide what to return instead of pre-orchestrating that *AOT*, simply because checking recursively potentially huge objects is not cheap so "*when in Rome*" I think I should simplify that dance as I need it myself on occasions. See https://github.com/WebReflection/buffered-clone/issues/2 to discuss more this feature
+  * **what about [Web API types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#webapi_types)?** - these will be supported too, where possible, once all *JS* types have been proven to work efficiently and effectively.
