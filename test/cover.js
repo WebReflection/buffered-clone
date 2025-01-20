@@ -4,11 +4,16 @@ import { encode, decode } from '../src/index.js';
 const convert = value => decode(encode(value));
 
 const assert = (result, expected) => {
-  if (!Object.is(result, expected))
+  if (!Object.is(result, expected)) {
+    console.log({ result, expected });
     throw new Error(`Unexpected result`);
+  }
 };
 
-verify(convert(data));
+console.time('complex data');
+const converted = convert(data);
+console.timeEnd('complex data');
+verify(converted);
 
 const length3 = 'a'.repeat(1 << 16);
 assert(convert(length3), length3);
@@ -43,3 +48,35 @@ assert(
 
 assert(convert(true), true);
 assert(convert(false), false);
+
+// Options
+const source = ['a', 'a'];
+source.unshift(source);
+let all = encode(source, { recursion: 'all' });
+let some = encode(source, { recursion: 'some' });
+
+try {
+  encode(source, { recursion: 'none' });
+  throw new Error('Unexpected encoding');
+}
+catch (OK) {}
+
+assert(all.join(',') !== some.join(','), true);
+
+try {
+  decode(all, { recursion: 'none' });
+  throw new Error('recursion should fail');
+}
+catch ({ message }) {
+  assert(message, 'Unexpected recursive value @ 0');
+}
+
+try {
+  decode(all, { recursion: 'some' });
+  throw new Error('recursion should fail');
+}
+catch ({ message }) {
+  assert(message, 'Unexpected recursive value @ 5');
+}
+
+assert(decode(some, { recursion: 'some' }).join(','), [[],'a', 'a'].join(','));
