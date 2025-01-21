@@ -41,6 +41,37 @@ const shared = new Uint8Array(MAX_PUSH);
 
 /**
  * @param {any} value
+ * @param {boolean} asNull
+ * @returns
+ */
+const asSerialized = (value, asNull) => {
+  switch (asValid(value)) {
+    case 'object': {
+      if (value === null) return NULL;
+      if (value.constructor === Object) return OBJECT;
+      if (isArray(value)) return ARRAY;
+      if (value instanceof ArrayBuffer) return BUFFER;
+      if (value instanceof Date) return DATE;
+      if (value instanceof Map) return MAP;
+      if (value instanceof Set) return SET;
+      if (value instanceof Error) return ERROR;
+      if (value instanceof RegExp) return REGEXP;
+      if (
+        value instanceof TypedArray ||
+        value instanceof DataView
+      ) return TYPED;
+      return OBJECT;
+    }
+    case 'string': return STRING;
+    case 'number': return isFinite(value) ? NUMBER : NULL;
+    case 'boolean': return BOOLEAN;
+    case 'bigint': return BIGINT;
+    default: return asNull ? NULL : -1;
+  }
+};
+
+/**
+ * @param {any} value
  * @returns
  */
 const asValid = value => {
@@ -78,84 +109,80 @@ class Encoder {
       return;
     }
 
-    switch (asValid(value)) {
-      case 'object': {
-        switch (true) {
-          case value === null: {
-            this.a.push(NULL);
-            break;
-          }
-          case value.constructor === Object: {
-            this.generic(value);
-            break;
-          }
-          case isArray(value): {
-            this.array(value);
-            break;
-          }
-          case value instanceof ArrayBuffer: {
-            this.buffer(value);
-            break;
-          }
-          case value instanceof Date: {
-            this.track(0, value);
-            toASCII(this.a, DATE, value.toISOString());
-            break;
-          }
-          case value instanceof Map: {
-            this.map(value);
-            break;
-          }
-          case value instanceof Set: {
-            this.set(value);
-            break;
-          }
-          case value instanceof RegExp: {
-            this.track(0, value);
-            this.simple(REGEXP, value.source, value.flags);
-            break;
-          }
-          case value instanceof TypedArray:
-          case value instanceof DataView: {
-            this.track(0, value);
-            this.simple(TYPED, value[toStringTag], value.buffer);
-            break;
-          }
-          case value instanceof Error: {
-            this.track(0, value);
-            this.simple(ERROR, value.name, value.message);
-            break;
-          }
-          default: {
-            this.generic(value);
-            break;
-          }
-        }
+    const type = asSerialized(value, asNull);
+    if (type < 0) return;
+    switch (type) {
+      case ARRAY: {
+        this.array(value);
         break;
       }
-      case 'string': {
+      case OBJECT: {
+        this.track(0, value);
+        const values = [];
+        for (const [k, v] of entries(value)) {
+          if (asValid(v)) values.push(k, v);
+        }
+        this.object(OBJECT, values);
+        break;
+      }
+      case STRING: {
         this.string(value);
         break;
       }
-      case 'number': {
-        if (isFinite(value)) {
-          this.track(1, value);
-          toASCII(this.a, NUMBER, String(value));
-        }
-        else this.a.push(NULL);
+      case NUMBER:
+      case BIGINT: {
+        this.track(1, value);
+        toASCII(this.a, type, String(value));
         break;
       }
-      case 'boolean': {
+      case BOOLEAN: {
         this.a.push(BOOLEAN, value ? 1 : 0);
         break;
       }
-      case 'bigint': {
-        this.track(1, value);
-        toASCII(this.a, BIGINT, String(value));
+      case NULL: {
+        this.a.push(NULL);
         break;
       }
-      default: {
-        if (asNull) this.a.push(NULL);
+      case BUFFER: {
+        this.buffer(value);
+        break;
+      }
+      case DATE: {
+        this.track(0, value);
+        toASCII(this.a, DATE, value.toISOString());
+        break;
+      }
+      case MAP: {
+        this.track(0, value);
+        const values = [];
+        for (const [k, v] of value) {
+          if (asValid(k) && asValid(v)) values.push(k, v);
+        }
+        this.object(MAP, values);
+        break;
+      }
+      case SET: {
+        this.track(0, value);
+        const values = [];
+        for (const v of value) {
+          if (asValid(v)) values.push(v);
+        }
+        this.object(SET, values);
+        break;
+      }
+      case ERROR: {
+        this.track(0, value);
+        this.simple(ERROR, value.name, value.message);
+        break;
+      }
+      case REGEXP: {
+        this.track(0, value);
+        this.simple(REGEXP, value.source, value.flags);
+        break;
+      }
+      case TYPED: {
+        this.track(0, value);
+        this.simple(TYPED, value[toStringTag], value.buffer);
         break;
       }
     }
@@ -199,42 +226,6 @@ class Encoder {
       for (let i = 0; i < length; i += MAX_PUSH)
         this.a.push(...ui8a.subarray(i, i + MAX_PUSH));
     }
-  }
-
-  /**
-   * @param {object} value
-   */
-  generic(value) {
-    this.track(0, value);
-    const values = [];
-    for (const [k, v] of entries(value)) {
-      if (asValid(v)) values.push(k, v);
-    }
-    this.object(OBJECT, values);
-  }
-
-  /**
-   * @param {Map} value
-   */
-  map(value) {
-    this.track(0, value);
-    const values = [];
-    for (const [k, v] of value) {
-      if (asValid(k) && asValid(v)) values.push(k, v);
-    }
-    this.object(MAP, values);
-  }
-
-  /**
-   * @param {Set} value
-   */
-  set(value) {
-    this.track(0, value);
-    const values = [];
-    for (const v of value) {
-      if (asValid(v)) values.push(v);
-    }
-    this.object(SET, values);
   }
 
   /**
@@ -303,7 +294,7 @@ class Encoder {
  * @returns
  */
 export default (value, options = null) => {
-  const encoder = new Encoder({ recursion: 'all', ...options });
-  encoder.encode(value, false);
-  return new Uint8Array(encoder.a);
+  const is = new Encoder({ recursion: 'all', ...options });
+  is.encode(value, false);
+  return new Uint8Array(is.a);
 };

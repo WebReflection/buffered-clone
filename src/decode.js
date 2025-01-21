@@ -18,7 +18,7 @@ import {
   DATE,
 } from './constants.js';
 
-import { fromASCII, fromCharCode } from './utils/ascii.js';
+import { fromASCII } from './utils/ascii.js';
 import { fromLength } from './utils/length.js';
 
 /** @typedef {Map<number,any>} Cache */
@@ -76,7 +76,7 @@ const decode = (ui8a, at, m, p) => {
       if (length) {
         const start = at.i;
         const end = (at.i += length);
-        const value = decoder.decode(ui8a.slice(start, end));
+        const value = decoder.decode(ui8a.subarray(start, end));
         if (p) m.set(i, value);
         return value;
       }
@@ -95,6 +95,7 @@ const decode = (ui8a, at, m, p) => {
       const length = fromLength(ui8a, at);
       const start = at.i;
       const end = (at.i += length);
+      // can't subarray in here or the buffer won't be usable
       const { buffer } = ui8a.slice(start, end);
       m.set(i, buffer);
       return buffer;
@@ -118,12 +119,6 @@ const decode = (ui8a, at, m, p) => {
         value.add(decode(ui8a, at, m, p));
       return value;
     }
-    case ERROR: {
-      const Class = globalThis[decode(ui8a, at, m, p)];
-      const value = new Class(decode(ui8a, at, m, p));
-      m.set(i, value);
-      return value;
-    }
     case REGEXP: {
       const value = new RegExp(decode(ui8a, at, m, p), decode(ui8a, at, m, p));
       m.set(i, value);
@@ -135,7 +130,14 @@ const decode = (ui8a, at, m, p) => {
       m.set(i, value);
       return value;
     }
+    case ERROR: {
+      const Class = globalThis[decode(ui8a, at, m, p)];
+      const value = new Class(decode(ui8a, at, m, p));
+      m.set(i, value);
+      return value;
+    }
     default: {
+      const { fromCharCode } = String;
       throw new TypeError(`Unable to decode type: ${fromCharCode(type)}`);
     }
   }

@@ -85,3 +85,13 @@ catch ({ message }) {
 }
 
 assert(decode(some, { recursion: 'some' }).join(','), [[],'a', 'a'].join(','));
+
+encode(new Uint8Array(1 << 0).buffer);
+encode(new Uint8Array(1 << 8).buffer);
+encode(new Uint8Array(1 << 16).buffer);
+encode(new Uint8Array(1 << 24).buffer);
+
+assert(decode(new Uint8Array([110, 1, 4, 43, 49, 101, 50])), 1e2);
+assert(decode(new Uint8Array([110, 1, 4, 43, 49, 69, 50])), 1E2);
+
+encode(() => {});
