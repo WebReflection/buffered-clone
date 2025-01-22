@@ -4,7 +4,7 @@ import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
 import { data, verify } from '../data.js';
 import { encode, decode } from '../../src/index.js';
 
-const carts = await (await fetch('https://dummyjson.com/carts')).json();
+const carts = await (await fetch('./carts.json')).json();
 
 let makeRecursive = true, cloned = null;
 const recursive = () => {
