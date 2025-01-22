@@ -78,7 +78,9 @@ class Decoder {
         if (length) {
           const start = this.i;
           const end = (this.i += length);
-          const value = decoder.decode(this.a.subarray(start, end));
+          // ⚠️ this cannot be a subarray because TextDecoder will
+          // complain if the view's buffer is a SharedArrayBuffer
+          const value = decoder.decode(this.a.slice(start, end));
           if (this.p) this.m.set(index, value);
           return value;
         }
