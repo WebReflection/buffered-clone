@@ -21,6 +21,7 @@ for (const [test, runs] of Object.entries(tests)) {
   append('h3', test);
   console.log(bold(test.toUpperCase()));
   for (const run of runs) {
+    // if (run.name === 'BSON') debugger;
     const p = append('p');
     const small = el('small', ` @ ${run.url} `);
     p.append(el('strong', run.name), small, el('br'));

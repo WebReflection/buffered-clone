@@ -1,5 +1,6 @@
 import * as flatted from 'https://esm.run/flatted';
 import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
+import { BSON } from 'https://esm.run/bson';
 
 import { data, verify } from '../data.js';
 import { encode, decode } from '../../src/index.js';
@@ -95,6 +96,17 @@ export default {
       }
     },
     {
+      name: 'BSON',
+      url: 'bson/serialization.js',
+      hot: 5,
+      decode: data => BSON.deserialize(data),
+      send: () => [[BSON.serialize(carts)]],
+      verify(data) {
+        if (JSON.stringify(data) !== JSON.stringify(carts))
+          throw new Error('invalid data');
+      }
+    },
+    {
       name: 'Flatted',
       url: 'flatted/serialization.js',
       hot: 5,
@@ -120,9 +132,9 @@ export default {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
       hot: 5,
-      decode: data => decode(data),
+      decode: data => decode(data, { recursion: 'all' }),
       send: () => {
-        const ui8a = encode(carts);
+        const ui8a = encode(carts, { recursion: 'all' });
         return [[ui8a], [ui8a.buffer]];
       },
       verify(data) {
