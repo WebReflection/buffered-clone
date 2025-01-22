@@ -132,10 +132,14 @@ export default {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
       hot: 5,
-      decode: data => decode(data, { recursion: 'all' }),
-      send: () => {
-        const ui8a = encode(carts, { recursion: 'all' });
-        return [[ui8a], [ui8a.buffer]];
+      recursion: 'all',
+      decode(data) {
+        return decode(data, { recursion: this.recursion });
+      },
+      send() {
+        const options = { recursion: this.recursion };
+        const ui8a = encode(carts, options);
+        return [[ui8a, options], [ui8a.buffer]];
       },
       verify(data) {
         const clone = encode(data);

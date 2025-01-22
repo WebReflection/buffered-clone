@@ -4,15 +4,13 @@ export default class Benchmark {
 
   #ready = false;
   #send;
-  #ondata;
   #name;
   #queue;
   #worker;
 
-  constructor({ url, send, ondata = () => {} }) {
-    this.#send = send;
-    this.#ondata = ondata;
-    this.#worker = new Worker(url, { type: 'module' });
+  constructor(options) {
+    this.#send = (...args) => options.send(...args);
+    this.#worker = new Worker(options.url, { type: 'module' });
     this.#worker.addEventListener('message', this);
     this.#queue = Promise.withResolvers();
     this.#worker.postMessage([Benchmark.INIT]);
@@ -21,10 +19,8 @@ export default class Benchmark {
   get ready() { return this.#queue.promise }
 
   handleEvent({ data: [ACTION, ...rest] }) {
-    if (ACTION === Benchmark.RUN) {
-      this.#ondata(...rest);
+    if (ACTION === Benchmark.RUN)
       console.timeEnd(this.#name);
-    }
     else this.#ready = true;
     this.#queue.resolve(...rest);
   }
