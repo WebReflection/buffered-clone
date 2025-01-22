@@ -15,10 +15,17 @@ const structured = structuredClone(data);
 console.timeEnd('structuredClone');
 verify(structured);
 
-console.time('complex data');
-const converted = convert(data);
-console.timeEnd('complex data');
-verify(converted);
+for (let i = 0; i < 5; i++) {
+  console.time('complex data via array');
+  const converted = convert(data);
+  console.timeEnd('complex data via array');
+  verify(converted);
+
+  console.time('complex data via buffer');
+  const convertedViaBuffer = decode(encode(data, { resizable: true }));
+  console.timeEnd('complex data via buffer');
+  verify(convertedViaBuffer);
+}
 
 const length3 = 'a'.repeat(1 << 16);
 assert(convert(length3), length3);
@@ -95,3 +102,4 @@ assert(decode(new Uint8Array([110, 1, 4, 43, 49, 101, 50])), 1e2);
 assert(decode(new Uint8Array([110, 1, 4, 43, 49, 69, 50])), 1E2);
 
 encode(() => {});
+encode(new DataView(new ArrayBuffer(0)), { resizable: true });
