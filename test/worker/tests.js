@@ -1,5 +1,5 @@
 import * as flatted from 'https://esm.run/flatted';
-import * as ungap from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
+import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
 import { BSON } from 'https://esm.run/bson';
 
 import { data, verify } from '../data.js';
@@ -33,6 +33,23 @@ const send = () => [[data]];
 const sendEncoded = () => {
   const ui8a = encode(data);
   return [[ui8a], [ui8a.buffer]];
+};
+
+const checkRecursion = data => {
+  let ok = 1;
+  if (data.dataview.buffer !== data.buffer) {
+    ok = 0;
+    console.warn('wrong buffer on dataview');
+  }
+  if (data.typed.buffer !== data.buffer) {
+    ok = 0;
+    console.warn('wrong buffer on typed array');
+  }
+  if (data.object.recursive !== data) {
+    ok = -1;
+    console.error('recursion not working');
+  }
+  return ok;
 };
 
 export default {
@@ -191,58 +208,88 @@ export default {
   ],
 
   ['Complex Serialization']: [
-    // // Fails due BigInt
-    // {
-    //   name: 'Flatted',
-    //   url: 'flatted/serialization.js',
-    //   hot: 3,
-    //   decode: data => flatted.parse(data),
-    //   send: () => [[flatted.stringify(data)]],
-    //   verify(result) {
-    //     if (flatted.stringify(result) !== flatted.stringify(data))
-    //       throw new Error('invalid data');
-    //   },
-    // },
+    // both flatted and BSON are out of the equation
+    // as either these don't support recursion or these
+    // simply ignore complex JS types
     {
       name: '@ungap structured-clone/json',
       url: 'ungap/serialization.js',
       hot: 3,
+      ok: 1,
+      warn: true,
       decode: data => ungap.parse(data),
       send: () => [[ungap.stringify(data)]],
       verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
         if (ungap.stringify(result) !== ungap.stringify(data))
           throw new Error('invalid data');
+        return this.ok;
       },
     },
     {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
       hot: 3,
+      ok: 1,
+      warn: true,
       decode: data => decode(data),
       send() {
         const ui8a = encode(data);
         return [[ui8a], [ui8a.buffer]];
       },
       verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
         const clone = encode(result);
         const source = encode(data);
         if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
           throw new Error('invalid data');
+        return this.ok;
       }
     },
   ],
   ['Decode Complex Data']: [
     {
+      name: '@ungap structured-clone/json',
+      url: 'ungap/decode.js',
+      hot: 3,
+      ok: 1,
+      warn: true,
+      decode: data => ungap.parse(data),
+      send: () => [[ungap.stringify(data)]],
+      verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
+        if (ungap.stringify(result) !== ungap.stringify(data))
+          throw new Error('invalid data');
+        return this.ok;
+      }
+    },
+    {
       name: 'Buffered Clone',
       url: 'buffered/decode.js',
       hot: 3,
+      ok: 1,
+      warn: true,
       decode: data => decode(data),
       send: () => [[buffer()]],
       verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
         const clone = encode(result);
         const source = buffer();
         if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
           throw new Error('invalid data');
+        return this.ok;
       }
     },
   ],

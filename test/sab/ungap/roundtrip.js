@@ -1,4 +1,4 @@
-import { parse } from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
+import { parse } from 'https://esm.run/@ungap/structured-clone/json';
 
 const { BYTES_PER_ELEMENT: I32 } = Int32Array;
 const maxByteLength = 2 ** 24;

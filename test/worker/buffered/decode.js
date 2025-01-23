@@ -1,4 +1,4 @@
-import { encode, decode } from '../../../src/index.js';
+import { decode } from '../../../src/index.js';
 import Benchmark from '../benchmark.js';
 
 export let decoded = null;

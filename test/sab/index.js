@@ -1,4 +1,4 @@
-import { stringify } from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
+import { stringify } from 'https://esm.run/@ungap/structured-clone/json';
 import { encode } from '../../src/index.js';
 
 // this cannot be used otherwise structured-clone fails

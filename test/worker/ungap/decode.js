@@ -1,12 +1,13 @@
-import { parse, stringify } from 'https://esm.run/@ungap/structured-clone/json';
-
+import { parse } from 'https://esm.run/@ungap/structured-clone/json';
 import Benchmark from '../benchmark.js';
+
+export let decoded = null;
 
 addEventListener('message', ({ data: [ACTION, ...rest] }) => {
   if (ACTION === Benchmark.RUN) {
     const [data] = rest;
-    const json = parse(data);
-    postMessage([ACTION, stringify(json)]);
+    decoded = parse(data);
+    postMessage([ACTION, data]);
   }
   else postMessage([Benchmark.INIT]);
 });

@@ -20,6 +20,7 @@ benchmark.replaceChildren();
 for (const [test, runs] of Object.entries(tests)) {
   append('h3', test);
   console.log(bold(test.toUpperCase()));
+  let ok = 1;
   for (const run of runs) {
     // if (run.name === 'BSON') debugger;
     const p = append('p');
@@ -31,7 +32,7 @@ for (const [test, runs] of Object.entries(tests)) {
     const info = p.appendChild(el('span', '⏱️ testing'));
     const check = data => {
       checks++;
-      run.verify(run.decode?.(data) ?? data);
+      ok = run.verify(run.decode?.(data) ?? data) ?? 1;
     };
     await bench.ready;
     bench.run(`    • ${lighter('cold run')} `);
@@ -42,7 +43,8 @@ for (const [test, runs] of Object.entries(tests)) {
     }
     bench.terminate();
     await sleep(100);
-    const prefix = checks === (run.hot + 1) ? `✅ done` : `🚫 failed`;
+    const emoji = ok > 0 ? '✅' : (!ok ? '⚠️' : '🚫');
+    const prefix = checks === (run.hot + 1) ? `${emoji} done` : `🚫 failed`;
     const suffix = `(1 cold + ${run.hot} hot runs)`;
     info.textContent = `${prefix} with ${checks} checks ${suffix}`;
   }
