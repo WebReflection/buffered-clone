@@ -15,27 +15,26 @@ export const asValid = value => {
 };
 
 /**
- * @param {number[]|Uint8Array} a
+ * @param {import("../encode.js").RAM} RAM
  * @param {number} value
- * @param {boolean} resizable
  */
-export const pushValue = (a, value, resizable) => {
-  const l = a.length;
+export const pushValue = (RAM, value) => {
+  let { a, $ } = RAM;
   //@ts-ignore
-  if (resizable) a.buffer.resize(l + 1);
-  a[l] = value;
+  if ($) a.buffer.resize(RAM._ + 1);
+  a[RAM._++] = value;
 };
 
 /**
- * @param {number[]|Uint8Array} a
+ * @param {import("../encode.js").RAM} RAM
  * @param {number[]|Uint8Array} values
- * @param {boolean} resizable
  */
-export const pushValues = (a, values, resizable) => {
-  let j = 0, i = a.length, l = values.length;
+export const pushValues = (RAM, values) => {
+  let { a, $, _ } = RAM, i = 0, length = values.length;
   //@ts-ignore
-  if (resizable) a.buffer.resize(i + l);
-  while (j < l) a[i++] = values[j++];
+  if ($) a.buffer.resize(_ + length);
+  while (i < length) a[_++] = values[i++];
+  RAM._ = _;
 };
 
 /**

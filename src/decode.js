@@ -30,6 +30,7 @@ import {
  * @property {number} i
  */
 
+const { fromCharCode } = String;
 const decoder = new TextDecoder;
 
 /**
@@ -46,13 +47,13 @@ class Decoder {
    * @param {boolean} p
    */
   constructor(a, m, p) {
-    this.i = 0;
+    this._ = 0;
     this.a = a;
     this.m = m;
     this.p = p;
   }
   decode() {
-    const index = this.i++;
+    const index = this._++;
     const type = this.a[index];
     switch (type) {
       case RECURSIVE: {
@@ -76,10 +77,11 @@ class Decoder {
       case STRING: {
         const length = this.length();
         if (length) {
-          const start = this.i;
-          const end = (this.i += length);
+          const start = this._;
+          const end = (this._ += length);
           // ⚠️ this cannot be a subarray because TextDecoder will
           // complain if the view's buffer is a SharedArrayBuffer
+          // or, probably, also if it was a resizable ArrayBuffer
           const value = decoder.decode(this.a.slice(start, end));
           if (this.p) this.m.set(index, value);
           return value;
@@ -93,14 +95,13 @@ class Decoder {
         if (this.p) this.m.set(index, value);
         return value;
       }
-      case BOOLEAN: return this.a[this.i++] === 1;
+      case BOOLEAN: return this.a[this._++] === 1;
       case NULL: return null;
       case BUFFER: {
         const length = this.length();
-        const start = this.i;
-        const end = (this.i += length);
-        // can't subarray in here or the buffer won't be usable
-        const { buffer } = this.a.slice(start, end);
+        const start = this._;
+        const end = (this._ += length);
+        const buffer = this.a.buffer.slice(start, end);
         this.m.set(index, buffer);
         return buffer;
       }
@@ -148,40 +149,42 @@ class Decoder {
   }
   ascii() {
     const length = this.length();
-    const { i } = this;
-    const value = this.a.subarray(i, (this.i += length));
-    let s = '';
-    for (let i = 0; i < length; i++) {
-      switch (value[i]) {
-        case 48: s += '0'; break;
-        case 49: s += '1'; break;
-        case 50: s += '2'; break;
-        case 51: s += '3'; break;
-        case 52: s += '4'; break;
-        case 53: s += '5'; break;
-        case 54: s += '6'; break;
-        case 55: s += '7'; break;
-        case 56: s += '8'; break;
-        case 57: s += '9'; break;
-        case 45: s += '-'; break;
-        case 46: s += '.'; break;
-        case 58: s += ':'; break;
-        case 84: s += 'T'; break;
-        case 90: s += 'Z'; break;
-        // ⚠️ this is never the case in JS encoding
-        //    but buffers could come from other PLs
-        case 101: s += 'e'; break;
-        case 69: s += 'E'; break;
-        default: s += '+'; break;
-      }
-    }
-    return s;
+    const { _: i } = this;
+    const codes = this.a.subarray(i, (this._ += length));
+    return fromCharCode.apply(null, codes);
+    // ⚠️ I'll keep this madness in here but ... 🤷
+    // let s = '';
+    // for (let i = 0; i < length; i++) {
+    //   switch (codes[i]) {
+    //     case 48: s += '0'; break;
+    //     case 49: s += '1'; break;
+    //     case 50: s += '2'; break;
+    //     case 51: s += '3'; break;
+    //     case 52: s += '4'; break;
+    //     case 53: s += '5'; break;
+    //     case 54: s += '6'; break;
+    //     case 55: s += '7'; break;
+    //     case 56: s += '8'; break;
+    //     case 57: s += '9'; break;
+    //     case 45: s += '-'; break;
+    //     case 46: s += '.'; break;
+    //     case 58: s += ':'; break;
+    //     case 84: s += 'T'; break;
+    //     case 90: s += 'Z'; break;
+    //     // ⚠️ this is never the case in JS encoding
+    //     //    but buffers could come from other PLs
+    //     case 101: s += 'e'; break;
+    //     case 69: s += 'E'; break;
+    //     default: s += '+'; break;
+    //   }
+    // }
+    // return s;
   }
   length() {
-    const { a } = this;
-    let value = 0;
-    for (let i = 0, length = a[this.i++]; i < length; i++)
-      value += a[this.i++] << (i * 8);
+    let { a, _ } = this, value = 0;
+    for (let i = 0, length = a[_++]; i < length; i++)
+      value += a[_++] << (i * 8);
+    this._ = _;
     return value;
   }
 }

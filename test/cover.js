@@ -22,9 +22,16 @@ for (let i = 0; i < 5; i++) {
   verify(converted);
 
   console.time('complex data via buffer');
-  const convertedViaBuffer = decode(encode(data, { resizable: true }));
+  const encodedBuffer = encode(data, { resizable: true });
+  const convertedViaBuffer = decode(encodedBuffer);
   console.timeEnd('complex data via buffer');
   verify(convertedViaBuffer);
+
+  console.time('complex data via pre-allocated buffer');
+  const buffer = new ArrayBuffer(encodedBuffer.length);
+  const allocatedBuffer = decode(encode(data, { buffer }));
+  console.timeEnd('complex data via pre-allocated buffer');
+  verify(allocatedBuffer);
 }
 
 const length3 = 'a'.repeat(1 << 16);

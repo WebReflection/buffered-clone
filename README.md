@@ -237,11 +237,24 @@ encode(anything, { recursion: 'none' });
 
 #### Options
 
-The `Options` type currently has a `recursion` field which value can be `'all'`, the default, `'some'` or `'none'`, where `'all'` is the current default, plus an optional `resizable` `boolean` field that indicates if the resulting *Uint8Array* should have a *resizable* buffer or a fixed one.
+Current options fields are exported as such:
 
-When the *resizable* field is `true`, the logic uses an *ArrayBuffer* that can grow up to `(2 ** 32) - 1` to fill the buffer, as opposite of using a "*forever incremental JS plain array*".
-
-At the current state of affairs, the latter one seems to produce better performance in *v8* engine, but I am not sure that will be the case in the future. If you do care at all about this detail please do pass a `{ resizable: true | false }` explicitly while encoding.
+```ts
+type Options = {
+    /**
+     * With `all`, the default, everything but `null`, `boolean` and empty `string` will be tracked recursively. With `some`, all primitives get ignored. With `none`, no recursion is ever tracked, leading to *maximum callstack* if present in the encoded data.
+     */
+    recursion: "all" | "some" | "none";
+    /**
+     * If `true` it will use a growing `ArrayBuffer` instead of an array.
+     */
+    resizable: boolean | null;
+    /**
+     * If passed, it will be filled with all encoded *uint8* values.
+     */
+    buffer: ArrayBuffer | null;
+};
+```
 
 ### BufferedClone.`decode(ui8a:Uint8Array<ArrayBuffer>, options?:Options):any`
 
