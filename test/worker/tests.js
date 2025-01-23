@@ -164,7 +164,7 @@ export default {
     {
       name: '@ungap structured-clone/json',
       url: 'ungap/serialization.js',
-      hot: 1,
+      hot: 3,
       decode: data => ungap.parse(data),
       send: () => [[ungap.stringify(recursive())]],
       verify(result) {
@@ -175,7 +175,7 @@ export default {
     {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
-      hot: 1,
+      hot: 3,
       decode: data => decode(data),
       send() {
         const ui8a = encode(recursive());
@@ -203,19 +203,17 @@ export default {
     //       throw new Error('invalid data');
     //   },
     // },
-    // // Fails due *reasons* ⚠️ (TODO: investigation?)
-    // {
-    //   name: '@ungap structured-clone/json',
-    //   url: 'ungap/serialization.js',
-    //   hot: 1,
-    //   decode: data => ungap.parse(data),
-    //   send: () => [[ungap.stringify(data)]],
-    //   verify(result) {
-    //     if (ungap.stringify(result) !== ungap.stringify(data))
-    //       throw new Error('invalid data');
-    //   },
-    // },
-    // it never fails 🥳
+    {
+      name: '@ungap structured-clone/json',
+      url: 'ungap/serialization.js',
+      hot: 3,
+      decode: data => ungap.parse(data),
+      send: () => [[ungap.stringify(data)]],
+      verify(result) {
+        if (ungap.stringify(result) !== ungap.stringify(data))
+          throw new Error('invalid data');
+      },
+    },
     {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',

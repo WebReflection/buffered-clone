@@ -50,3 +50,4 @@ for (const [test, runs] of Object.entries(tests)) {
   console.log('');
   await sleep(300);
 }
+append('h3', '✅ Done');
