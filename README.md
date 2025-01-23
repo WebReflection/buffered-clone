@@ -242,7 +242,7 @@ Current options fields are exported as such:
 ```ts
 type Options = {
     /**
-     * With `all`, the default, everything but `null`, `boolean` and empty `string` will be tracked recursively. With `some`, all primitives get ignored. With `none`, no recursion is ever tracked, leading to *maximum callstack* if present in the encoded data.
+     * With `all` being the default, everything but `null`, `boolean` and empty `string` will be tracked recursively. With `some`, all primitives get ignored. With `none`, no recursion is ever tracked, leading to *maximum callstack* if present in the encoded data.
      */
     recursion: "all" | "some" | "none";
     /**
@@ -253,6 +253,10 @@ type Options = {
      * If passed, it will be filled with all encoded *uint8* values.
      */
     buffer: ArrayBuffer | null;
+    /**
+     * If passed, no more than those bytes will ever be allocated. The maximum value is `(2 ** 32) - 1` but here its default is `2 ** 24`. See https://tc39.es/ecma262/multipage/structured-data.html#sec-resizable-arraybuffer-guidelines to know more.
+     */
+    maxByteLength: number;
 };
 ```
 
