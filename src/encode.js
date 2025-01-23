@@ -87,6 +87,15 @@ class Encoder {
   }
 
   /**
+   * @param {Error} error
+   */
+  error({ name, message }) {
+    pushValue(this, ERROR);
+    if (!this.known(name)) asASCII(this, STRING, name);
+    if (!this.known(message)) this.string(message);
+  }
+
+  /**
    * @param {any} value
    * @param {boolean} asNull
    */
@@ -126,17 +135,18 @@ class Encoder {
           }
           case value instanceof RegExp: {
             this.track(0, value);
-            this.simple(REGEXP, value.source, value.flags, true);
+            this.regexp(value);
             break;
           }
           case isView(value): {
             this.track(0, value);
-            this.simple(TYPED, value[toStringTag], value.buffer, false);
+            const Class = value[toStringTag];
+            this.typed(Class, /** @type {ArrayBuffer} */(value.buffer));
             break;
           }
           case value instanceof Error: {
             this.track(0, value);
-            this.simple(ERROR, value.name, value.message, true);
+            this.error(value);
             break;
           }
           default: {
@@ -218,6 +228,15 @@ class Encoder {
   }
 
   /**
+   * @param {RegExp} re
+   */
+  regexp({ source, flags }) {
+    pushValue(this, REGEXP);
+    if (!this.known(source)) this.string(source);
+    if (!this.known(flags)) asASCII(this, STRING, flags);
+  }
+
+  /**
    * @param {Set} value
    */
   set(value) {
@@ -225,21 +244,6 @@ class Encoder {
     const values = [];
     value.forEach(setValue, values);
     this.object(SET, values);
-  }
-
-  /**
-   * @param {number} type
-   * @param {string} key
-   * @param {string|ArrayBuffer|SharedArrayBuffer} value
-   * @param {boolean} asString
-   */
-  simple(type, key, value, asString) {
-    pushValue(this, type);
-    if (!this.known(key)) this.string(key);
-    if (!this.known(value)) {
-      if (asString) this.string(/** @type {string} */(value));
-      else this.buffer(/** @type {ArrayBuffer} */(value));
-    }
   }
 
   /**
@@ -270,6 +274,16 @@ class Encoder {
       );
       /** @type {Cache} */(this.m).set(value, a);
     }
+  }
+
+  /**
+   * @param {string} Class
+   * @param {ArrayBuffer} buffer
+   */
+  typed(Class, buffer) {
+    pushValue(this, TYPED);
+    if (!this.known(Class)) asASCII(this, STRING, Class);
+    if (!this.known(buffer)) this.buffer(buffer);
   }
 }
 
