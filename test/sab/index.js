@@ -7,7 +7,10 @@ import { encode } from '../../src/index.js';
 // this is a temporary fallback until the structured-clone library
 // gets patched ... if ever, as I'm not sure what is going on there
 const data = await (await fetch('../worker/carts.json')).json();
-const verify = () => {};
+const verify = result => {
+  if (stringify(result) !== stringify(data))
+    throw new Error('invalid result');
+};
 data.recursive = data;
 data.carts.unshift(data);
 data.carts.push(data);
@@ -35,7 +38,7 @@ const buffered = {
   url: 'buffered/roundtrip.js',
   handleEvent({ data: [ACTION, sab] }) {
     if (ACTION === 'encode') {
-      const encoded = encode(stringify(data));
+      const encoded = encode(data);
       let { length } = encoded;
       length += length % 4;
       sab.grow(length);

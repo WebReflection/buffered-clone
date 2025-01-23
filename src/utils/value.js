@@ -38,6 +38,18 @@ export const pushValues = (RAM, values) => {
 };
 
 /**
+ * @param {import("../encode.js").RAM} RAM
+ * @param {Uint8Array} view
+ */
+export const pushView = (RAM, view) => {
+  let { a, $, _ } = RAM, length = view.length;
+  //@ts-ignore
+  if ($) a.buffer.resize(_ + length);
+  /** @type {Uint8Array} */(a).set(view, _);
+  RAM._ += length;
+};
+
+/**
  * @this {any[]}
  * @param {any} v
  * @param {string|symbol} k

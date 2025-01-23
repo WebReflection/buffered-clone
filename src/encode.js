@@ -20,7 +20,7 @@ import {
 
 import { asASCII } from './utils/ascii.js';
 import { pushLength } from './utils/length.js';
-import { asValid, pushValue, pushValues, mapPair, setValue } from './utils/value.js';
+import { asValid, pushValue, pushValues, pushView, mapPair, setValue } from './utils/value.js';
 
 /** @typedef {Map<any,number[]>} Cache */
 /** @typedef {0|1|2} recursion */
@@ -50,16 +50,18 @@ class Encoder {
    * @param {recursion} r
    * @param {number[]|Uint8Array} a
    * @param {Cache?} m
-   * @param {boolean} resizable 
+   * @param {boolean} resizable
+   * @param {boolean} typed
    */
-  constructor(r, a, m, resizable) {
+  constructor(r, a, m, resizable, typed) {
     this.r = r;
     this.a = a;
     this.m = m;
 
-    this.$ = resizable;
     /** @type {number} */
     this._ = 0;
+    this.$ = resizable;
+    this.T = typed;
   }
 
   /**
@@ -80,7 +82,8 @@ class Encoder {
     this.track(0, value);
     const ui8a = new Uint8Array(value);
     pushLength(this, BUFFER, ui8a.length);
-    pushValues(this, ui8a);
+    if (this.T) pushView(this, ui8a);
+    else pushValues(this, ui8a);
   }
 
   /**
@@ -247,7 +250,8 @@ class Encoder {
       this.track(1, value);
       const str = encoder.encode(value);
       pushLength(this, STRING, str.length);
-      pushValues(this, str);
+      if (this.T) pushView(this, str);
+      else pushValues(this, str);
     }
     else pushValues(this, [STRING, 0]);
   }
@@ -280,10 +284,11 @@ export default (value, options = null) => {
   const recursion = options?.recursion ?? 'all';
   const resizable = !!options?.resizable;
   const buffer = options?.buffer;
+  const typed = resizable || !!buffer;
 
   const r = recursion === 'all' ? 2 : (recursion === 'none' ? 0 : 1);
 
-  const a = (resizable || buffer) ?
+  const a = typed ?
     new Uint8Array(
       //@ts-ignore
       buffer || new ArrayBuffer(0, { maxByteLength })
@@ -293,7 +298,7 @@ export default (value, options = null) => {
 
   const m = r > 0 ? new Map : null;
 
-  (new Encoder(r, a, m, resizable)).encode(value, false);
+  (new Encoder(r, a, m, resizable, typed)).encode(value, false);
 
-  return (resizable || buffer) ? /** @type {Uint8Array} */(a) : new Uint8Array(a);
+  return typed ? /** @type {Uint8Array} */(a) : new Uint8Array(a);
 };
