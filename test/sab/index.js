@@ -12,8 +12,6 @@ data.recursive = data;
 data.carts.unshift(data);
 data.carts.push(data);
 
-const serialized = new Map;
-
 const test = async handler => {
   let queue = Promise.withResolvers();
   const worker = new Worker(handler.url, { type: 'module' });
@@ -35,24 +33,18 @@ const buffered = {
   resolve: null,
   name: 'buffered-clone',
   url: 'buffered/roundtrip.js',
-  handleEvent({ currentTarget, data: [ACTION, sab] }) {
-    if (ACTION === 'length') {
-      const encoded = encode(data);
-      serialized.set(currentTarget, encoded);
-      const i32a = new Int32Array(sab);
-      i32a[0] = 1;
-      i32a[1] = encoded.length;
-      Atomics.notify(i32a, 0);
-    }
-    else if (ACTION === 'buffer') {
-      const encoded = serialized.get(currentTarget);
-      const ui8a = new Uint8Array(sab);
-      for (let i = 0; i < encoded.length; i++) ui8a[i] = encoded[i];
+  handleEvent({ data: [ACTION, sab] }) {
+    if (ACTION === 'encode') {
+      const encoded = encode(stringify(data));
+      let { length } = encoded;
+      length += length % 4;
+      sab.grow(length);
+      new Uint8Array(sab).set(encoded);
       Atomics.notify(new Int32Array(sab), 0);
     }
     else if (ACTION === 'verify') {
-      verify(sab);
       console.timeEnd(this.name);
+      verify(sab);
       this.resolve();
     }
   }
@@ -65,24 +57,21 @@ const ungap = {
   name: 'structured-clone/json',
   url: 'ungap/roundtrip.js',
   encoder: new TextEncoder,
-  handleEvent({ currentTarget, data: [ACTION, sab] }) {
-    if (ACTION === 'length') {
+  handleEvent({ data: [ACTION, sab] }) {
+    if (ACTION === 'encode') {
       const encoded = this.encoder.encode(stringify(data));
-      serialized.set(currentTarget, encoded);
+      const { length } = encoded;
+      let i = length + 4;
+      while (i % 4) i++;
+      sab.grow(i);
+      new Uint8Array(sab).set(encoded, 4);
       const i32a = new Int32Array(sab);
-      i32a[0] = 1;
-      i32a[1] = encoded.length;
+      i32a[0] = length;
       Atomics.notify(i32a, 0);
     }
-    else if (ACTION === 'buffer') {
-      const encoded = serialized.get(currentTarget);
-      const ui8a = new Uint8Array(sab);
-      for (let i = 0; i < encoded.length; i++) ui8a[i] = encoded[i];
-      Atomics.notify(new Int32Array(sab), 0);
-    }
     else if (ACTION === 'verify') {
-      verify(sab);
       console.timeEnd(this.name);
+      verify(sab);
       this.resolve();
     }
   }
