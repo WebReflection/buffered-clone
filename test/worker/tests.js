@@ -1,5 +1,5 @@
 import * as flatted from 'https://esm.run/flatted';
-import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
+import * as ungap from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
 import { BSON } from 'https://esm.run/bson';
 
 import { data, verify } from '../data.js';

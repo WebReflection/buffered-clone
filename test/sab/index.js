@@ -1,19 +1,8 @@
-import { stringify } from 'https://esm.run/@ungap/structured-clone/json';
+import { stringify } from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
 import { encode } from '../../src/index.js';
 
 // this cannot be used otherwise structured-clone fails
-// import { data, verify } from '../data.js';
-
-// this is a temporary fallback until the structured-clone library
-// gets patched ... if ever, as I'm not sure what is going on there
-const data = await (await fetch('../worker/carts.json')).json();
-const verify = result => {
-  if (stringify(result) !== stringify(data))
-    throw new Error('invalid result');
-};
-data.recursive = data;
-data.carts.unshift(data);
-data.carts.push(data);
+import { data, verify } from '../data.js';
 
 const test = async handler => {
   let queue = Promise.withResolvers();

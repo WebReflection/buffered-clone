@@ -1,4 +1,4 @@
-import { parse, stringify } from 'https://esm.run/@ungap/structured-clone/json';
+import { parse, stringify } from 'https://esm.run/@ungap/structured-clone@1.3.0/json';
 
 import Benchmark from '../benchmark.js';
 
