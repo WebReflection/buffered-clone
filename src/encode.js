@@ -32,10 +32,10 @@ import { asValid, pushValue, pushValues, mapPair, setValue } from './utils/value
  * @prop {'all' | 'some' | 'none'} recursion With `all` being the default, everything but `null`, `boolean` and empty `string` will be tracked recursively. With `some`, all primitives get ignored. With `none`, no recursion is ever tracked, leading to *maximum callstack* if present in the encoded data.
  * @prop {boolean?} resizable If `true` it will use a growing `ArrayBuffer` instead of an array.
  * @prop {ArrayBuffer?} buffer If passed, it will be filled with all encoded *uint8* values.
- * @prop {number} maxByteLength If passed, no more than those bytes will ever be allocated. The maximum value is `(2 ** 32) - 1` but here its default is `2 ** 24`. See https://tc39.es/ecma262/multipage/structured-data.html#sec-resizable-arraybuffer-guidelines to know more.
+ * @prop {number} maxByteLength If passed, no more than those bytes will ever be allocated. The maximum value is `(2 ** 32) - 1` but here its default is `2 ** 26` (8MB of data, usually plenty for normal operations). See https://tc39.es/ecma262/multipage/structured-data.html#sec-resizable-arraybuffer-guidelines to know more.
  */
 
-const MAX_BYTE_LENGTH = (2 ** 24);
+const MAX_BYTE_LENGTH = (2 ** 26);
 
 const { isArray } = Array;
 const { isView } = ArrayBuffer;
