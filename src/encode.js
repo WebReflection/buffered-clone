@@ -54,6 +54,20 @@ const toBufferedClone = Symbol.for('buffered-clone');
 
 const encoder = new TextEncoder;
 
+/**
+ * @param {any} value
+ * @param {number} at
+ */
+const recursive = (value, at) => {
+  const a = [];
+  M.set(value, a);
+  pushLength(
+    /** @type {Recursion} */({ a, $: false, _: 0 }),
+    RECURSIVE,
+    at
+  );
+};
+
 class Encoder {
   /**
    * @param {recursion} r
@@ -176,12 +190,11 @@ class Encoder {
    * @param {object} value
    */
   indirect(value) {
+    const cache = this.r > 0;
+    if (cache) recursive(value, this._);
     const wrapped = value[toBufferedClone]();
     this.encode(wrapped, true);
-    if (this.r > 0) {
-      const indirect = M.get(wrapped);
-      if (indirect) M.set(value, indirect);
-    }
+    if (cache && !M.has(wrapped)) M.delete(value);
   }
 
   /**
@@ -271,15 +284,7 @@ class Encoder {
    * @param {any} value
    */
   track(level, value) {
-    if (this.r > level) {
-      const a = [];
-      M.set(value, a);
-      pushLength(
-        /** @type {Recursion} */({ a, $: false, _: 0 }),
-        RECURSIVE,
-        this._
-      );
-    }
+    if (this.r > level) recursive(value, this._);
   }
 
   /**

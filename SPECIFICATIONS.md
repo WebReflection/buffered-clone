@@ -561,6 +561,10 @@ This allows users to define a callback that will return whatever needs to be buf
 
 ```js
 class Complex extends EvenMoreComplex {
+  constructor() {
+    this.complex = true;
+    // this.x = y; and so on
+  }
   [toBufferedClone]() {
     return { simple: Math.random() };
   }
@@ -591,3 +595,4 @@ d[0] === d[1]; // false
 </details>
 
 ## TO BE CONTINUED ...
+

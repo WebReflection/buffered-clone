@@ -157,3 +157,14 @@ assert(arr[0].invokes, 1);
 assert(arr[1].invokes, 2);
 
 assert(null, decode(encode({ [toBufferedClone]() { return null } })));
+
+class BadRecursion {
+  [toBufferedClone]() {
+    return null;
+  }
+}
+
+ref = new BadRecursion;
+arr = decode(encode([ref, ref]));
+
+console.log(arr);
