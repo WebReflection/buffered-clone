@@ -542,4 +542,52 @@ This means that *DataView* instances require no extra work as they both provide 
   </div>
 </details>
 
+#### Hook: toBufferedClone
+<details open>
+  <summary><small>details</small></summary>
+  <div markdown=1>
+
+Not really a type itself and not necessary to encode or exchange buffers around but at least the *JS* implementation offers the ability to create custom classes or references with a globally available *symbol*:
+
+```js
+const toBufferedClone = Symbol.for('buffered-clone');
+// any name would do
+const toBuffer = Symbol.for('buffered-clone');
+const asBuffer = Symbol.for('buffered-clone');
+// ... etc ...
+```
+
+This allows users to define a callback that will return whatever needs to be buffered once `encode(reference)` happens, just like `toJSON` or `toBSON` functions work, except this is a *symbol* which cannot get buffered and usually has less clashing and conflicts across projects.
+
+```js
+class Complex extends EvenMoreComplex {
+  [toBufferedClone]() {
+    return { simple: Math.random() };
+  }
+}
+
+decode(encode(new Complex)); // {"simple":0.123}
+```
+
+Please note that, to preserve recursion correctly, such method will be invoked once per reference, and once only, during any *encoding*, even if that reference is present multiple times within the encoded data.
+
+```js
+const a = new Complex;
+const b = new Complex;
+
+const d = decode(encode([a, b, a]));
+// [{"simple":0.42},{"simple":0.78},{"simple":0.42}]
+//  └──────┬──────┘                 └──────┬──────┘
+//         └──◂ these two are the same ◂───┘
+
+d[0] === d[2]; // true
+d[0] === d[1]; // false
+```
+
+> ![NOTE]
+> Internally both the original *reference* and its returning counterpart are temporarily tracked to guarantee that either pointers will provide the same *recursion* within the buffer.
+
+  </div>
+</details>
+
 ## TO BE CONTINUED ...
