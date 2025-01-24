@@ -87,7 +87,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected recursive value @ 0');
+  assert(message, 'Unexpected Recursion');
 }
 
 try {
@@ -95,7 +95,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected recursive value @ 5');
+  assert(message, 'Unexpected Recursion');
 }
 
 assert(decode(some, { recursion: 'some' }).join(','), [[],'a', 'a'].join(','));
@@ -110,3 +110,13 @@ assert(decode(new Uint8Array([110, 1, 4, 43, 49, 69, 50])), 1E2);
 
 encode(() => {});
 encode(new DataView(new ArrayBuffer(0)), { resizable: true });
+
+// test empty ascii string
+decode(encode(['a', /no-flags/, 'b']));
+
+decode(encode([1, 1n, 1], { recursion: 'some' }), { recursion: 'some' });
+
+// test fallback for Error and TypedArray
+const name = [...encode('Unknown')];
+decode(new Uint8Array([101, ...name, ...encode('message')]));
+decode(new Uint8Array([84, ...name, ...encode(new ArrayBuffer(0))]));

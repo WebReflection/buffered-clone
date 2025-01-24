@@ -295,7 +295,7 @@ Where `98` is the ASCII code associated to the char `b`.
   </div>
 </details>
 
-#### nul
+#### null
 <details open>
   <summary><small>details</small></summary>
   <div markdown=1>

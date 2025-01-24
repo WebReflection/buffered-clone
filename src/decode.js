@@ -33,169 +33,178 @@ import {
 const { fromCharCode } = String;
 const decoder = new TextDecoder;
 
+const throwOnRecursion = () => {
+  throw new SyntaxError('Unexpected Recursion');
+};
+
 /**
- * @param {number} i
+ * @param {Cache|Loophole} map
+ * @param {number} as
+ * @param {any} value
+ * @returns
  */
-const throwOnRecursiveValue = i => {
-  throw new SyntaxError('Unexpected recursive value @ ' + i);
+const track = (map, as, value) => {
+  map.set(as, value);
+  return value;
 };
 
 class Decoder {
   /**
    * @param {Uint8Array} a
-   * @param {Loophole | Cache} m
+   * @param {Cache|Loophole} m
    * @param {boolean} p
    */
-  constructor(a, m, p) {
-    this._ = 0;
-    this.a = a;
+  constructor(m, a, p) {
+    this.i = 0;
     this.m = m;
+    this.a = a;
     this.p = p;
   }
+
+  /**
+   * @param {any[]} value
+   * @returns
+   */
+  array(value) {
+    for (let i = 0, length = this.length(); i < length; i++)
+      value.push(this.decode());
+    return value;
+  }
+
+  ascii() {
+    const length = this.length();
+    if (length) {
+      const i = this.i;
+      const codes = this.a.subarray(i, (this.i += length));
+      return fromCharCode.apply(null, codes);
+    }
+    return '';
+  }
+
+  buffer() {
+    const length = this.length();
+    const start = this.i;
+    const end = (this.i += length);
+    return this.a.buffer.slice(start, end);
+  }
+
   decode() {
-    const index = this._++;
-    const type = this.a[index];
-    switch (type) {
-      case RECURSIVE: {
-        const i = this.length();
-        return this.m.get(i) ?? throwOnRecursiveValue(i);
-      }
-      case ARRAY: {
-        const value = [];
-        this.m.set(index, value);
-        for (let i = 0, length = this.length(); i < length; i++)
-          value.push(this.decode());
-        return value;
-      }
-      case OBJECT: {
-        const value = {};
-        this.m.set(index, value);
-        for (let i = 0, length = this.length(); i < length; i += 2)
-          value[this.decode()] = this.decode();
-        return value;
-      }
-      case STRING: {
-        const length = this.length();
-        if (length) {
-          const start = this._;
-          const end = (this._ += length);
-          // ⚠️ this cannot be a subarray because TextDecoder will
-          // complain if the view's buffer is a SharedArrayBuffer
-          // or, probably, also if it was a resizable ArrayBuffer
-          const value = decoder.decode(this.a.slice(start, end));
-          if (this.p) this.m.set(index, value);
-          return value;
-        }
-        return '';
-      }
-      case NUMBER:
-      case BIGINT: {
-        const string = this.ascii();
-        const value = type === BIGINT ? BigInt(string) : parseFloat(string);
-        if (this.p) this.m.set(index, value);
-        return value;
-      }
-      case BOOLEAN: return this.a[this._++] === 1;
-      case NULL: return null;
-      case BUFFER: {
-        const length = this.length();
-        const start = this._;
-        const end = (this._ += length);
-        const buffer = this.a.buffer.slice(start, end);
-        this.m.set(index, buffer);
-        return buffer;
-      }
-      case DATE: {
-        const value = new Date(this.ascii());
-        this.m.set(index, value);
-        return value;
-      }
-      case MAP: {
-        const value = new Map;
-        this.m.set(index, value);
-        for (let i = 0, length = this.length(); i < length; i += 2)
-          value.set(this.decode(), this.decode());
-        return value;
-      }
-      case SET: {
-        const value = new Set;
-        this.m.set(index, value);
-        for (let i = 0, length = this.length(); i < length; i++)
-          value.add(this.decode());
-        return value;
-      }
-      case REGEXP: {
-        const value = new RegExp(this.decode(), this.decode());
-        this.m.set(index, value);
-        return value;
-      }
-      case TYPED: {
-        const Class = globalThis[this.decode()];
-        const value = new Class(this.decode());
-        this.m.set(index, value);
-        return value;
-      }
-      case ERROR: {
-        const Class = globalThis[this.decode()];
-        const value = new Class(this.decode());
-        this.m.set(index, value);
-        return value;
-      }
+    const as = this.i;
+    switch (this.a[this.i++]) {
+      case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion();
+      case OBJECT:    return this.object(track(this.m, as, {}));
+      case ARRAY:     return this.array(track(this.m, as, []));
+      case STRING:    return this.string(as);
+      case NUMBER:    return this.number(as, parseFloat);
+      case BOOLEAN:   return this.a[this.i++] === 1;
+      case NULL:      return null;
+      case DATE:      return track(this.m, as, new Date(this.ascii()));
+      case MAP:       return this.map(track(this.m, as, new Map));
+      case SET:       return this.set(track(this.m, as, new Set));
+      case TYPED:     return (this.i++, track(this.m, as, this.typed()));
+      case BUFFER:    return track(this.m, as, this.buffer());
+      case BIGINT:    return this.number(as, BigInt);
+      case REGEXP:    return track(this.m, as, this.regexp());
+      case ERROR:     return (this.i++, track(this.m, as, this.error()));
       default: {
-        const { fromCharCode } = String;
-        throw new TypeError(`Unable to decode type: ${fromCharCode(type)}`);
+        const type = fromCharCode(this.a[as]);
+        throw new TypeError(`Unable to decode type: ${type}`);
       }
     }
   }
-  ascii() {
-    const length = this.length();
-    const { _: i } = this;
-    const codes = this.a.subarray(i, (this._ += length));
-    return fromCharCode.apply(null, codes);
-    // ⚠️ I'll keep this madness in here but ... 🤷
-    // let s = '';
-    // for (let i = 0; i < length; i++) {
-    //   switch (codes[i]) {
-    //     case 48: s += '0'; break;
-    //     case 49: s += '1'; break;
-    //     case 50: s += '2'; break;
-    //     case 51: s += '3'; break;
-    //     case 52: s += '4'; break;
-    //     case 53: s += '5'; break;
-    //     case 54: s += '6'; break;
-    //     case 55: s += '7'; break;
-    //     case 56: s += '8'; break;
-    //     case 57: s += '9'; break;
-    //     case 45: s += '-'; break;
-    //     case 46: s += '.'; break;
-    //     case 58: s += ':'; break;
-    //     case 84: s += 'T'; break;
-    //     case 90: s += 'Z'; break;
-    //     // ⚠️ this is never the case in JS encoding
-    //     //    but buffers could come from other PLs
-    //     case 101: s += 'e'; break;
-    //     case 69: s += 'E'; break;
-    //     default: s += '+'; break;
-    //   }
-    // }
-    // return s;
+
+  error() {
+    const name = this.ascii();
+    const Class = globalThis[name] || Error;
+    return new Class(this.decode());
   }
+
   length() {
-    let { a, _ } = this, value = 0;
-    for (let i = 0, length = a[_++]; i < length; i++)
-      value += a[_++] << (i * 8);
-    this._ = _;
+    let { a, i } = this, value = 0;
+    for (let j = 0, length = a[i++]; j < length; j++)
+      value += a[i++] << (j * 8);
+    this.i = i;
     return value;
+  }
+
+  /**
+   * @param {Map} value
+   * @returns
+   */
+  map(value) {
+    for (let i = 0, length = this.length(); i < length; i += 2)
+      value.set(this.decode(), this.decode());
+    return value;
+  }
+
+  /**
+   * @param {number} as
+   * @param {typeof parseFloat|typeof BigInt} create
+   * @returns 
+   */
+  number(as, create) {
+    const value = create(this.ascii());
+    return this.p ? track(this.m, as, value) : value;
+  }
+
+  /**
+   * @param {object} value
+   * @returns
+   */
+  object(value) {
+    for (let i = 0, length = this.length(); i < length; i += 2)
+      value[this.decode()] = this.decode();
+    return value;
+  }
+
+  regexp() {
+    const source = this.decode();
+    const flags = (this.i++, this.ascii());
+    return new RegExp(source, flags);
+  }
+
+  /**
+   * @param {Set} value
+   * @returns
+   */
+  set(value) {
+    for (let i = 0, length = this.length(); i < length; i++)
+      value.add(this.decode());
+    return value;
+  }
+
+  /**
+   * @param {number} as
+   * @returns
+   */
+  string(as) {
+    const length = this.length();
+    if (length) {
+      const start = this.i;
+      const end = (this.i += length);
+      // ⚠️ this cannot be a subarray because TextDecoder will
+      // complain if the view's buffer is a SharedArrayBuffer
+      // or, probably, also if it was a resizable ArrayBuffer
+      const value = decoder.decode(this.a.slice(start, end));
+      return this.p ? track(this.m, as, value) : value;
+    }
+    return '';
+  }
+
+  typed() {
+    const view = this.ascii();
+    const Class = globalThis[view] || Uint16Array;
+    return new Class(this.decode());
   }
 }
 
-class Loophole {
+const Loophole = {
   /**
    * @param {number} i
    */
   get(i) {
-    throwOnRecursiveValue(i);
-  }
+    throwOnRecursion();
+  },
 
   /**
    * @param {number} i
@@ -203,8 +212,8 @@ class Loophole {
    */
   set(i, value) {
     // do nothing
-  }
-}
+  },
+};
 
 /**
  * @param {Uint8Array<ArrayBuffer>} ui8a
@@ -213,6 +222,6 @@ class Loophole {
  */
 export default (ui8a, options) => {
   const r = options?.recursion;
-  const map = r === 'none' ? new Loophole : new Map;
-  return new Decoder(ui8a, map, r !== 'some').decode();
+  const map = r === 'none' ? Loophole : new Map;
+  return new Decoder(map, ui8a, r !== 'some').decode();
 };

@@ -18,9 +18,16 @@ import {
   DATE,
 } from './constants.js';
 
-import { asASCII } from './utils/ascii.js';
-import { pushLength } from './utils/length.js';
-import { asValid, pushValue, pushValues, pushView, mapPair, setValue } from './utils/value.js';
+import {
+  pushLength,
+  asASCII,
+  asValid,
+  pushValue,
+  pushValues,
+  pushView,
+  mapPair,
+  setValue,
+} from './encode/utils.js';
 
 /** @typedef {Map<any,number[]>} Cache */
 /** @typedef {0|1|2} recursion */
@@ -76,7 +83,7 @@ class Encoder {
   }
 
   /**
-   * @param {ArrayBuffer} value
+   * @param {ArrayBufferLike} value
    */
   buffer(value) {
     this.track(0, value);
@@ -89,8 +96,10 @@ class Encoder {
   /**
    * @param {Error} error
    */
-  error({ name, message }) {
+  error(error) {
+    this.track(0, error);
     pushValue(this, ERROR);
+    const { name, message } = error;
     if (!this.known(name)) asASCII(this, STRING, name);
     if (!this.known(message)) this.string(message);
   }
@@ -134,18 +143,14 @@ class Encoder {
             break;
           }
           case value instanceof RegExp: {
-            this.track(0, value);
             this.regexp(value);
             break;
           }
           case isView(value): {
-            this.track(0, value);
-            const Class = value[toStringTag];
-            this.typed(Class, /** @type {ArrayBuffer} */(value.buffer));
+            this.typed(value);
             break;
           }
           case value instanceof Error: {
-            this.track(0, value);
             this.error(value);
             break;
           }
@@ -230,8 +235,10 @@ class Encoder {
   /**
    * @param {RegExp} re
    */
-  regexp({ source, flags }) {
+  regexp(re) {
+    this.track(0, re);
     pushValue(this, REGEXP);
+    const { source, flags } = re;
     if (!this.known(source)) this.string(source);
     if (!this.known(flags)) asASCII(this, STRING, flags);
   }
@@ -277,11 +284,13 @@ class Encoder {
   }
 
   /**
-   * @param {string} Class
-   * @param {ArrayBuffer} buffer
+   * @param {ArrayBufferView} view
    */
-  typed(Class, buffer) {
+  typed(view) {
+    this.track(0, view);
     pushValue(this, TYPED);
+    //@ts-ignore
+    const { [toStringTag]: Class, buffer } = view;
     if (!this.known(Class)) asASCII(this, STRING, Class);
     if (!this.known(buffer)) this.buffer(buffer);
   }

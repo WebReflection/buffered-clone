@@ -42,7 +42,6 @@ for (const [test, runs] of Object.entries(tests)) {
       await bench.ready.then(check);
     }
     bench.terminate();
-    await sleep(100);
     const emoji = ok > 0 ? '✅' : (!ok ? '⚠️' : '🚫');
     const prefix = checks === (run.hot + 1) ? `${emoji} done` : `🚫 failed`;
     const suffix = `(1 cold + ${run.hot} hot runs)`;
@@ -50,6 +49,6 @@ for (const [test, runs] of Object.entries(tests)) {
   }
   append('hr');
   console.log('');
-  await sleep(300);
+  await sleep(500);
 }
 append('h3', '✅ Done');
