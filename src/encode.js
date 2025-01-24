@@ -55,12 +55,13 @@ const toBufferedClone = Symbol.for('buffered-clone');
 const encoder = new TextEncoder;
 
 /**
+ * @param {Map} value
  * @param {any} value
  * @param {number} at
  */
-const recursive = (value, at) => {
+const recursive = (map, value, at) => {
   const a = [];
-  M.set(value, a);
+  map.set(value, a);
   pushLength(
     /** @type {Recursion} */({ a, $: false, _: 0 }),
     RECURSIVE,
@@ -77,12 +78,11 @@ class Encoder {
    * @param {boolean} typed
    */
   constructor(r, a, m, resizable, typed) {
+    this._ = 0;
     this.r = r;
     this.a = a;
     this.m = m;
 
-    /** @type {number} */
-    this._ = 0;
     this.$ = resizable;
     this.T = typed;
   }
@@ -187,14 +187,31 @@ class Encoder {
   }
 
   /**
-   * @param {object} value
+   * @param {object} wrap
    */
-  indirect(value) {
-    const cache = this.r > 0;
-    if (cache) recursive(value, this._);
-    const wrapped = value[toBufferedClone]();
-    this.encode(wrapped, true);
-    if (cache && !M.has(wrapped)) M.delete(value);
+  indirect(wrap) {
+    const { _, r, a, m } = this;
+    const recursion = r > 0;
+    // store `value` at current position in case
+    // the returned value also point at itself
+    if (recursion) recursive(m, wrap, _);
+    const wrapped = wrap[toBufferedClone]();
+    // if the method returned itself, make it null
+    // because there is literally nothing to encode
+    if (wrapped === wrap) {
+      if (recursion) {
+        pushValue(this, NULL);
+        /** @type {Cache} */(m).set(wrap, [0]);
+      }
+    }
+    else {
+      this.encode(wrapped, true);
+      // if the returned value was not recursive
+      // avoid multiple invocations of the method
+      // by storing whatever result it produced
+      if (recursion && !/** @type {Cache} */(m).has(wrapped))
+        /** @type {Cache} */(m).set(wrap, /** @type {number[]} */(a.slice(_)));
+    }
   }
 
   /**
@@ -203,7 +220,7 @@ class Encoder {
    */
   known(value) {
     if (this.r > 0) {
-      const recursive = M.get(value);
+      const recursive = /** @type {Cache} */(this.m).get(value);
       if (recursive) {
         pushValues(this, recursive);
         return true;
@@ -284,7 +301,7 @@ class Encoder {
    * @param {any} value
    */
   track(level, value) {
-    if (this.r > level) recursive(value, this._);
+    if (this.r > level) recursive(this.m, value, this._);
   }
 
   /**
@@ -300,9 +317,6 @@ class Encoder {
   }
 }
 
-/** @type {Cache} */
-const M = new Map;
-
 /**
  * @template T
  * @param {T extends undefined ? never : T extends Function ? never : T extends symbol ? never : T} value
@@ -315,22 +329,13 @@ export default (value, options = null) => {
   const resizable = !!options?.resizable;
   const buffer = options?.buffer;
   const typed = resizable || !!buffer;
-
   const r = recursion === 'all' ? 2 : (recursion === 'none' ? 0 : 1);
-
   const a = typed ?
-    new Uint8Array(
-      //@ts-ignore
-      buffer || new ArrayBuffer(0, { maxByteLength })
-    ) :
+    //@ts-ignore
+    new Uint8Array(buffer || new ArrayBuffer(0, { maxByteLength })) :
     []
   ;
-
-  const m = r > 0 ? M : null;
-
+  const m = r > 0 ? new Map : null;
   (new Encoder(r, a, m, resizable, typed)).encode(value, false);
-
-  if (r > 0) M.clear();
-
   return typed ? /** @type {Uint8Array} */(a) : new Uint8Array(a);
 };

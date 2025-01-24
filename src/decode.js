@@ -213,6 +213,13 @@ const V = {
   set(i, value) {},
 };
 
+// ⚠️ in encode it was not possible to
+//    encode while encoding due shared Map
+//    in here there is not such thing because
+//    nothing can decode while decoding *but*
+//    if one day a fromBufferedClone thing happens
+//    and it happens during decoding, this shared
+//    map idea becomes more dangerous than useful.
 /** @typedef {Map<number,any>} */
 const M = new Map;
 

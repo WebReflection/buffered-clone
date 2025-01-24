@@ -128,7 +128,7 @@ let invokes = 0;
 class Recursive {
   [toBufferedClone]() {
     invokes++;
-    const object = {};
+    const object = { seppuku: this };
     object.recursive = object;
     return object;
   }
@@ -140,6 +140,7 @@ assert(invokes, 1);
 assert(arr.length, 2);
 assert(arr[0], arr[1]);
 assert(arr[0].recursive, arr[1]);
+assert(arr[0].seppuku, arr[0]);
 
 invokes = 0;
 class NotRecursive {
@@ -158,13 +159,45 @@ assert(arr[1].invokes, 2);
 
 assert(null, decode(encode({ [toBufferedClone]() { return null } })));
 
+invokes = 0;
 class BadRecursion {
   [toBufferedClone]() {
+    invokes++;
     return null;
   }
 }
 
 ref = new BadRecursion;
 arr = decode(encode([ref, ref]));
+assert(invokes, 1);
+assert(arr.length, 2);
+assert(arr.every(v => v === null), true);
 
-console.log(arr);
+invokes = 0;
+class SelfRecursion {
+  [toBufferedClone]() {
+    invokes++;
+    return this;
+  }
+}
+
+ref = new SelfRecursion;
+arr = decode(encode([ref, ref]));
+assert(invokes, 1);
+assert(arr.length, 2);
+assert(arr.every(v => v === null), true);
+
+invokes = 0;
+class DifferentRecursion {
+  [toBufferedClone]() {
+    invokes++;
+    return Math.random();
+  }
+}
+
+ref = new DifferentRecursion;
+arr = decode(encode([ref, ref, 'ok'], { recursion: 'some' }));
+assert(invokes, 1);
+assert(arr.length, 3);
+assert(arr[0], arr[1]);
+assert(arr[2], 'ok');
