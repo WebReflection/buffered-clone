@@ -2,7 +2,7 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/WebReflection/buffered-clone/badge.svg?branch=main)](https://coveralls.io/github/WebReflection/buffered-clone?branch=main) 
 
-<sup>**Social Media Photo by [Ries Bosch](https://unsplash.com/@ries_bosch) on [Unsplash](https://unsplash.com/)**</sup>
+<sup>**Social Media Photo by [marc belver colomer](https://unsplash.com/@marc_belver) on [Unsplash](https://unsplash.com/)**</sup>
 
 A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported JS types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types) into a binary format.
 
