@@ -296,6 +296,9 @@ class Encoder {
   }
 }
 
+/** @type {Cache} */
+const M = new Map;
+
 /**
  * @template T
  * @param {T extends undefined ? never : T extends Function ? never : T extends symbol ? never : T} value
@@ -319,9 +322,11 @@ export default (value, options = null) => {
     []
   ;
 
-  const m = r > 0 ? new Map : null;
+  const m = r > 0 ? M : null;
 
   (new Encoder(r, a, m, resizable, typed)).encode(value, false);
+
+  if (r > 0) M.clear();
 
   return typed ? /** @type {Uint8Array} */(a) : new Uint8Array(a);
 };

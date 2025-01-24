@@ -87,7 +87,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected Recursion');
+  assert(message, 'Unexpected Recursion @ 0');
 }
 
 try {
@@ -95,7 +95,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected Recursion');
+  assert(message, 'Unexpected Recursion @ 9');
 }
 
 assert(decode(some, { recursion: 'some' }).join(','), [[],'a', 'a'].join(','));

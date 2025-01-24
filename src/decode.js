@@ -18,11 +18,9 @@ import {
   DATE,
 } from './constants.js';
 
-/** @typedef {Map<number,any>} Cache */
-
 /**
  * @typedef {object} Options
- * @prop {'all' | 'some' | 'none'} recursion With `all`, the default, everything recursive will be tracked. With `some`, all primitives get ignored or fail if found as recursive. With `none`, no recursion is ever tracked and an error is thrown when any recursive data is found.
+ * @prop {'all'|'some'|'none'} recursion With `all`, the default, everything recursive will be tracked. With `some`, all primitives get ignored or fail if found as recursive. With `none`, no recursion is ever tracked and an error is thrown when any recursive data is found.
  */
 
 /**
@@ -33,12 +31,15 @@ import {
 const { fromCharCode } = String;
 const decoder = new TextDecoder;
 
-const throwOnRecursion = () => {
-  throw new SyntaxError('Unexpected Recursion');
+/**
+ * @param {number} at
+ */
+const throwOnRecursion = at => {
+  throw new SyntaxError(`Unexpected Recursion @ ${at}`);
 };
 
 /**
- * @param {Cache|Loophole} map
+ * @param {M|V} map
  * @param {number} as
  * @param {any} value
  * @returns
@@ -51,7 +52,7 @@ const track = (map, as, value) => {
 class Decoder {
   /**
    * @param {Uint8Array} a
-   * @param {Cache|Loophole} m
+   * @param {M|V} m
    * @param {boolean} p
    */
   constructor(m, a, p) {
@@ -91,7 +92,7 @@ class Decoder {
   decode() {
     const as = this.i;
     switch (this.a[this.i++]) {
-      case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion();
+      case RECURSIVE: return this.m.get(this.length()) ?? this.throw(as);
       case OBJECT:    return this.object(track(this.m, as, {}));
       case ARRAY:     return this.array(track(this.m, as, []));
       case STRING:    return this.string(as);
@@ -191,6 +192,14 @@ class Decoder {
     return '';
   }
 
+  /**
+   * @param {number} up
+   */
+  throw(up) {
+    this.m.clear();
+    throwOnRecursion(up);
+  }
+
   typed() {
     const view = this.ascii();
     const Class = globalThis[view] || Uint16Array;
@@ -198,22 +207,25 @@ class Decoder {
   }
 }
 
-const Loophole = {
+const V = {
   /**
-   * @param {number} i
+   * @param {number} up
    */
-  get(i) {
-    throwOnRecursion();
+  get(up) {
+    throwOnRecursion(up);
   },
 
   /**
    * @param {number} i
    * @param {any} value
    */
-  set(i, value) {
-    // do nothing
-  },
+  set(i, value) {},
+
+  clear() {}
 };
+
+/** @typedef {Map<number,any>} */
+const M = new Map;
 
 /**
  * @param {Uint8Array<ArrayBuffer>} ui8a
@@ -222,6 +234,7 @@ const Loophole = {
  */
 export default (ui8a, options) => {
   const r = options?.recursion;
-  const map = r === 'none' ? Loophole : new Map;
-  return new Decoder(map, ui8a, r !== 'some').decode();
+  const value = new Decoder(r === 'none' ? V : M, ui8a, r !== 'some').decode();
+  M.clear();
+  return value;
 };
