@@ -50,6 +50,8 @@ const { isFinite } = Number;
 const { entries } = Object;
 const { toStringTag } = Symbol;
 
+const toBufferedClone = Symbol.for('buffered-clone');
+
 const encoder = new TextEncoder;
 
 class Encoder {
@@ -83,6 +85,14 @@ class Encoder {
   }
 
   /**
+   * @param {bigint} value
+   */
+  bigint(value) {
+    this.track(1, value);
+    asASCII(this, BIGINT, String(value));
+  }
+
+  /**
    * @param {ArrayBufferLike} value
    */
   buffer(value) {
@@ -91,6 +101,14 @@ class Encoder {
     pushLength(this, BUFFER, ui8a.length);
     if (this.T) pushView(this, ui8a);
     else pushValues(this, ui8a);
+  }
+
+  /**
+   * @param {Date} value
+   */
+  date(value) {
+    this.track(0, value);
+    asASCII(this, DATE, value.toISOString());
   }
 
   /**
@@ -109,83 +127,35 @@ class Encoder {
    * @param {boolean} asNull
    */
   encode(value, asNull) {
+    if (value === null) return pushValue(this, NULL);
     if (this.known(value)) return;
     switch (asValid(value)) {
       case 'object': {
         switch (true) {
-          case value === null: {
-            pushValue(this, NULL);
-            break;
-          }
-          case value.constructor === Object: {
-            this.generic(value);
-            break;
-          }
-          case isArray(value): {
-            this.array(value);
-            break;
-          }
-          case value instanceof ArrayBuffer: {
-            this.buffer(value);
-            break;
-          }
-          case value instanceof Date: {
-            this.track(0, value);
-            asASCII(this, DATE, value.toISOString());
-            break;
-          }
-          case value instanceof Map: {
-            this.map(value);
-            break;
-          }
-          case value instanceof Set: {
-            this.set(value);
-            break;
-          }
-          case value instanceof RegExp: {
-            this.regexp(value);
-            break;
-          }
-          case isView(value): {
-            this.typed(value);
-            break;
-          }
-          case value instanceof Error: {
-            this.error(value);
-            break;
-          }
-          default: {
-            this.generic(value);
-            break;
-          }
+          case toBufferedClone in value: this.indirect(value); break;
+          case value.constructor === Object: this.generic(value); break;
+          case isArray(value): this.array(value); break;
+          case isView(value): this.typed(value); break;
+          case value instanceof Date: this.date(value); break;
+          case value instanceof ArrayBuffer: this.buffer(value); break;
+          case value instanceof Map: this.map(value); break;
+          case value instanceof Set: this.set(value); break;
+          case value instanceof RegExp: this.regexp(value); break;
+          case value instanceof Error: this.error(value); break;
+          // TODO: objects like new Boolean(false) or others
+          //       don't exist in other PLs and I still haven't
+          //       found a use case for those ... only new String
+          //       might be an exception but then again, maybe a
+          //       solution such as toBufferedClone is better here?
+          default: this.generic(value); break;
         }
         break;
       }
-      case 'string': {
-        this.string(value);
-        break;
-      }
-      case 'number': {
-        if (isFinite(value)) {
-          this.track(1, value);
-          asASCII(this, NUMBER, String(value));
-        }
-        else pushValue(this, NULL);
-        break;
-      }
-      case 'boolean': {
-        pushValues(this, [BOOLEAN, value ? 1 : 0]);
-        break;
-      }
-      case 'bigint': {
-        this.track(1, value);
-        asASCII(this, BIGINT, String(value));
-        break;
-      }
-      default: {
-        if (asNull) pushValue(this, NULL);
-        break;
-      }
+      case 'string': this.string(value); break;
+      case 'number': this.number(value); break;
+      case 'boolean': pushValues(this, [BOOLEAN, value ? 1 : 0]); break;
+      case 'bigint': this.bigint(value); break;
+      default: if (asNull) pushValue(this, NULL); break;
     }
   }
 
@@ -203,12 +173,30 @@ class Encoder {
   }
 
   /**
+   * @param {object} value
+   */
+  indirect(value) {
+    const wrapped = value[toBufferedClone]();
+    this.encode(wrapped, true);
+    if (this.r > 0) {
+      const indirect = M.get(wrapped);
+      if (indirect) M.set(value, indirect);
+    }
+  }
+
+  /**
    * @param {any} value
    * @returns
    */
   known(value) {
-    const recursive = this.r > 0 && /** @type {Cache} */(this.m).get(value);
-    return recursive ? (pushValues(this, recursive), true) : false;
+    if (this.r > 0) {
+      const recursive = M.get(value);
+      if (recursive) {
+        pushValues(this, recursive);
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -219,6 +207,17 @@ class Encoder {
     const values = [];
     value.forEach(mapPair, values);
     this.object(MAP, values);
+  }
+
+  /**
+   * @param {number} value
+   */
+  number(value) {
+    if (isFinite(value)) {
+      this.track(1, value);
+      asASCII(this, NUMBER, String(value));
+    }
+    else pushValue(this, NULL);
   }
 
   /**
@@ -274,12 +273,12 @@ class Encoder {
   track(level, value) {
     if (this.r > level) {
       const a = [];
+      M.set(value, a);
       pushLength(
         /** @type {Recursion} */({ a, $: false, _: 0 }),
         RECURSIVE,
         this._
       );
-      /** @type {Cache} */(this.m).set(value, a);
     }
   }
 

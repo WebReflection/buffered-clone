@@ -35,6 +35,7 @@ const decoder = new TextDecoder;
  * @param {number} at
  */
 const throwOnRecursion = at => {
+  M.clear();
   throw new SyntaxError(`Unexpected Recursion @ ${at}`);
 };
 
@@ -92,7 +93,7 @@ class Decoder {
   decode() {
     const as = this.i;
     switch (this.a[this.i++]) {
-      case RECURSIVE: return this.m.get(this.length()) ?? this.throw(as);
+      case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion(as);
       case OBJECT:    return this.object(track(this.m, as, {}));
       case ARRAY:     return this.array(track(this.m, as, []));
       case STRING:    return this.string(as);
@@ -192,14 +193,6 @@ class Decoder {
     return '';
   }
 
-  /**
-   * @param {number} up
-   */
-  throw(up) {
-    this.m.clear();
-    throwOnRecursion(up);
-  }
-
   typed() {
     const view = this.ascii();
     const Class = globalThis[view] || Uint16Array;
@@ -209,19 +202,15 @@ class Decoder {
 
 const V = {
   /**
-   * @param {number} up
+   * @param {number} i
    */
-  get(up) {
-    throwOnRecursion(up);
-  },
+  get(i) {},
 
   /**
    * @param {number} i
    * @param {any} value
    */
   set(i, value) {},
-
-  clear() {}
 };
 
 /** @typedef {Map<number,any>} */

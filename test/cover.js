@@ -87,7 +87,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected Recursion @ 0');
+  assert(message, 'Unexpected Recursion @ 3');
 }
 
 try {
@@ -120,3 +120,40 @@ decode(encode([1, 1n, 1], { recursion: 'some' }), { recursion: 'some' });
 const name = [...encode('Unknown')];
 decode(new Uint8Array([101, ...name, ...encode('message')]));
 decode(new Uint8Array([84, ...name, ...encode(new ArrayBuffer(0))]));
+
+// toBufferedClone
+const toBufferedClone = Symbol.for('buffered-clone');
+
+let invokes = 0;
+class Recursive {
+  [toBufferedClone]() {
+    invokes++;
+    const object = {};
+    object.recursive = object;
+    return object;
+  }
+}
+
+let ref = new Recursive;
+let arr = decode(encode([ref, ref]));
+assert(invokes, 1);
+assert(arr.length, 2);
+assert(arr[0], arr[1]);
+assert(arr[0].recursive, arr[1]);
+
+invokes = 0;
+class NotRecursive {
+  [toBufferedClone]() {
+    invokes++;
+    return { invokes };
+  }
+}
+
+ref = new NotRecursive;
+arr = decode(encode([ref, ref], { recursion: 'none' }));
+assert(invokes, 2);
+assert(arr.length, 2);
+assert(arr[0].invokes, 1);
+assert(arr[1].invokes, 2);
+
+assert(null, decode(encode({ [toBufferedClone]() { return null } })));
