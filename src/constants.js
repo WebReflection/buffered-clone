@@ -25,5 +25,6 @@ export const ERROR     = /** @type {101} */(  $('e')  );
 export const REGEXP     = /** @type {82} */(  $('R')  );
 export const STRING    = /** @type {115} */(  $('s')  );
 
-export const BOOLEAN    = /** @type {98} */(  $('b')  );
+export const FALSE      = /** @type {98} */(  $('b')  );
+export const TRUE       = /** @type {99} */(  $('c')  );
 export const FUNCTION  = /** @type {102} */(  $('f')  );

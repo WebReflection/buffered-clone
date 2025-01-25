@@ -74,7 +74,8 @@ Both *JSON* and *StructuredClone* are supported, where former types could potent
 | name      | value | char  |
 |:--------- | :---- | :---- |
 | ARRAY     | `65`  | A     |
-| BOOLEAN   | `98`  | b     |
+| FALSE     | `98`  | b     |
+| TRUE      | `99`  | c     |
 | NULL      | `0`   |       |
 | NUMBER    | `110` | n     |
 | OBJECT    | `79`  | O     |
@@ -194,7 +195,7 @@ In *JS* case, that is `new TextEncoder().encode(string)` which produces already 
 ### JSON types to Binary Conversion
 
   * **ARRAY** has its `type`, `length` and *values* as such: `[65, ...Length(array), ...encodedValues]`. All values encoded must be a known *type* and, whenever that's not the case, a `NULL` type is stored instead, like it is for `JSON.stringify([1, Incompatible(), 2])` which results into `[1, null, 2]`
-  * **BOOLEAN** has its `type` and either `1` or `0` as value: `[98, 1]` for *true* and `[98, 0]` for *false
+  * **BOOLEAN** is either `[98]` (char for `b`) for `false` and `[99]` for `true` (which is *false* + `1`)
   * **NULL** has only its `type`: `[0]`
   * **NUMBER** has its `type` and its stringified content as value: `[110, ...Length(ASCIIString(value)), ...ASCIIString(value)]`, preserving potentially huge numbers integrity
   * **OBJECT** has its `type`, *key* / *value* pairs length, and each *key* / *value* encoded after: `[79, ...Length(kvParis), ...kvParis]`

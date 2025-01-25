@@ -2,7 +2,8 @@
 
 import {
   NULL,
-  BOOLEAN,
+  TRUE,
+  FALSE,
   NUMBER,
   STRING,
   ARRAY,
@@ -98,7 +99,8 @@ class Decoder {
       case ARRAY:     return this.array(track(this.m, as, []));
       case STRING:    return this.string(as);
       case NUMBER:    return this.number(as, parseFloat);
-      case BOOLEAN:   return this.a[this.i++] === 1;
+      case TRUE:      return true;
+      case FALSE:     return false;
       case NULL:      return null;
       case DATE:      return track(this.m, as, new Date(this.ascii()));
       case MAP:       return this.map(track(this.m, as, new Map));

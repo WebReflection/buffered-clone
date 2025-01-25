@@ -2,7 +2,8 @@
 
 import {
   NULL,
-  BOOLEAN,
+  TRUE,
+  FALSE,
   NUMBER,
   STRING,
   ARRAY,
@@ -167,7 +168,7 @@ class Encoder {
       }
       case 'string': this.string(value); break;
       case 'number': this.number(value); break;
-      case 'boolean': pushValues(this, [BOOLEAN, value ? 1 : 0]); break;
+      case 'boolean': pushValue(this, value ? TRUE : FALSE); break;
       case 'bigint': this.bigint(value); break;
       default: if (asNull) pushValue(this, NULL); break;
     }
