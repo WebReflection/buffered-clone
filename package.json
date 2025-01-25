@@ -8,7 +8,7 @@
   "scripts": {
     "build": "npm run ts && npm run test",
     "test": "c8 node ./test/cover.js",
-    "ts": "tsc --allowJs --checkJs --lib dom,esnext -d --emitDeclarationOnly --outDir ./types ./src/index.js",
+    "ts": "tsc --allowJs --checkJs --lib dom,esnext --target esnext -d --emitDeclarationOnly --outDir ./types ./src/index.js",
     "coverage": "mkdir -p ./coverage; c8 report --reporter=text-lcov > ./coverage/lcov.info"
   },
   "exports": {

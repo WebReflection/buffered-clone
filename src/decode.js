@@ -1,32 +1,42 @@
 //@ts-check
 
 import {
-  NULL,
-  TRUE,
-  FALSE,
-  NUMBER,
-  STRING,
+  // JSON
   ARRAY,
   OBJECT,
+  STRING,
+  TRUE,
+  FALSE,
+  NULL,
+
+  // numbers
+  I8A, I8,
+  U8A, U8,
+  I16A, I16,
+  U16A, U16,
+  I32A, I32,
+  F32A, F32,
+  U32A, U32,
+  I64A, I64,
+  F64A, F64,
+  U64A, U64,
+
+  // JS types
   BUFFER,
-  TYPED,
   RECURSIVE,
-  BIGINT,
   ERROR,
   REGEXP,
   SET,
   MAP,
   DATE,
+  DATAVIEW,
 } from './constants.js';
+
+import * as number from './number.js';
 
 /**
  * @typedef {object} Options
  * @prop {'all'|'some'|'none'} recursion With `all`, the default, everything recursive will be tracked. With `some`, all primitives get ignored or fail if found as recursive. With `none`, no recursion is ever tracked and an error is thrown when any recursive data is found.
- */
-
-/**
- * @typedef {Object} Position
- * @property {number} i
  */
 
 const { fromCharCode } = String;
@@ -70,10 +80,13 @@ class Decoder {
    */
   array(value) {
     for (let i = 0, length = this.length(); i < length; i++)
-      value.push(this.decode());
+      value[i] = this.decode();
     return value;
   }
 
+  /**
+   * @returns {string}
+   */
   ascii() {
     const length = this.length();
     if (length) {
@@ -95,21 +108,47 @@ class Decoder {
     const as = this.i;
     switch (this.a[this.i++]) {
       case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion(as);
+      // JSON arrays / objects
       case OBJECT:    return this.object(track(this.m, as, {}));
       case ARRAY:     return this.array(track(this.m, as, []));
+      // strings
+      // case ASCII:     return this.string(as, true);
       case STRING:    return this.string(as);
-      case NUMBER:    return this.number(as, parseFloat);
+      // numbers
+      case I8:        return this.number(as, number.i8);
+      case U8:        return this.number(as, number.u8);
+      case I16:       return this.number(as, number.i16);
+      case U16:       return this.number(as, number.u16);
+      case I32:       return this.number(as, number.i32);
+      case F32:       return this.number(as, number.f32);
+      case U32:       return this.number(as, number.u32);
+      case I64:       return this.number(as, number.i64);
+      case F64:       return this.number(as, number.f64);
+      case U64:       return this.number(as, number.u64);
+      // typed / dataview
+      case I8A:       return track(this.m, as, new Int8Array(this.decode()));
+      case U8A:       return track(this.m, as, new Uint8Array(this.decode()));
+      case I16A:      return track(this.m, as, new Int16Array(this.decode()));
+      case U16A:      return track(this.m, as, new Uint16Array(this.decode()));
+      case I32A:      return track(this.m, as, new Int32Array(this.decode()));
+      case F32A:      return track(this.m, as, new Float32Array(this.decode()));
+      case U32A:      return track(this.m, as, new Uint32Array(this.decode()));
+      case I64A:      return track(this.m, as, new BigInt64Array(this.decode()));
+      case F64A:      return track(this.m, as, new Float64Array(this.decode()));
+      case U64A:      return track(this.m, as, new BigUint64Array(this.decode()));
+      case DATAVIEW:  return track(this.m, as, new DataView(this.decode()));
+      // boolean
       case TRUE:      return true;
       case FALSE:     return false;
+      // null
       case NULL:      return null;
+      // other types
       case DATE:      return track(this.m, as, new Date(this.ascii()));
       case MAP:       return this.map(track(this.m, as, new Map));
       case SET:       return this.set(track(this.m, as, new Set));
-      case TYPED:     return (this.i++, track(this.m, as, this.typed()));
       case BUFFER:    return track(this.m, as, this.buffer());
-      case BIGINT:    return this.number(as, BigInt);
       case REGEXP:    return track(this.m, as, this.regexp());
-      case ERROR:     return (this.i++, track(this.m, as, this.error()));
+      case ERROR:     return track(this.m, as, this.error());
       default: {
         const type = fromCharCode(this.a[as]);
         throw new TypeError(`Unable to decode type: ${type}`);
@@ -117,18 +156,29 @@ class Decoder {
     }
   }
 
+  /**
+   * @returns {Error}
+   */
   error() {
+    this.i++;
     const name = this.ascii();
     const Class = globalThis[name] || Error;
     return new Class(this.decode());
   }
 
   length() {
-    let { a, i } = this, value = 0;
-    for (let j = 0, length = a[i++]; j < length; j++)
-      value += a[i++] << (j * 8);
-    this.i = i;
-    return value;
+    let { a, i } = this, type;
+    switch (a[i]) {
+      case U8:  {
+        this.i += 2;
+        return a[i + 1];
+      };
+      case U16: type = number.u16; break;
+      case U32: type = number.u32; break;
+      default:  type = number.f64; break;
+    }
+    this.i += type.length + 1;
+    return /** @type {number} */(type.decode(a.subarray(i + 1, this.i)));
   }
 
   /**
@@ -143,17 +193,19 @@ class Decoder {
 
   /**
    * @param {number} as
-   * @param {typeof parseFloat|typeof BigInt} create
-   * @returns 
+   * @param {import("./number.js").Number} decoder
+   * @returns {number|bigint}
    */
-  number(as, create) {
-    const value = create(this.ascii());
-    return this.p ? track(this.m, as, value) : value;
+  number(as, decoder) {
+    let { i, m, a } = this;
+    this.i += decoder.length;
+    const value = decoder === number.u8 ? a[i] : decoder.decode(a.subarray(i, this.i));
+    return this.p ? track(m, as, value) : value;
   }
 
   /**
    * @param {object} value
-   * @returns
+   * @returns {object}
    */
   object(value) {
     for (let i = 0, length = this.length(); i < length; i += 2)
@@ -161,9 +213,13 @@ class Decoder {
     return value;
   }
 
+  /**
+   * @returns {RegExp}
+   */
   regexp() {
     const source = this.decode();
-    const flags = (this.i++, this.ascii());
+    this.i++;
+    const flags = this.ascii();
     return new RegExp(source, flags);
   }
 
@@ -179,7 +235,7 @@ class Decoder {
 
   /**
    * @param {number} as
-   * @returns
+   * @returns {string}
    */
   string(as) {
     const length = this.length();
@@ -193,12 +249,6 @@ class Decoder {
       return this.p ? track(this.m, as, value) : value;
     }
     return '';
-  }
-
-  typed() {
-    const view = this.ascii();
-    const Class = globalThis[view] || Uint16Array;
-    return new Class(this.decode());
   }
 }
 

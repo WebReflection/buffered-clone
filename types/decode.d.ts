@@ -6,6 +6,3 @@ export type Options = {
      */
     recursion: "all" | "some" | "none";
 };
-export type Position = {
-    i: number;
-};

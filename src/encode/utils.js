@@ -9,39 +9,6 @@ const ui8a = new Uint8Array(ui32b);
 /** @typedef {import("../encode.js").Recursion} Recursion */
 
 /**
- * @param {RAM|Recursion} RAM
- * @param {number} type
- * @param {number} length
- */
-export const pushLength = (RAM, type, length) => {
-  let { a, $, _ } = RAM;
-  if (length < 1) {
-    //@ts-ignore
-    if ($) a.buffer.resize(_ + 2);
-    a[_++] = type;
-    a[_++] = 0;
-  }
-  else if (length < (1 << 8)) {
-    //@ts-ignore
-    if ($) a.buffer.resize(_ + 3);
-    a[_++] = type;
-    a[_++] = 1;
-    a[_++] = length;
-  }
-  else {
-    ui32a[0] = length;
-    let len = BYTES_PER_ELEMENT;
-    while (len && !ui8a[len - 1]) len--;
-    //@ts-ignore
-    if ($) a.buffer.resize(_ + len + 2);
-    a[_++] = type;
-    a[_++] = len;
-    for (let i = 0; i < len; i++) a[_++] = ui8a[i];
-  }
-  RAM._ = _;
-};
-
-/**
  * @param {RAM} RAM
  * @param {number} type
  * @param {string} str
@@ -49,7 +16,7 @@ export const pushLength = (RAM, type, length) => {
 export const asASCII = (RAM, type, str) => {
   const { length } = str;
   pushLength(RAM, type, length);
-  let { a, $, _ } = RAM;
+  let { _, a, $ } = RAM;
   if ($) {
     //@ts-ignore
     a.buffer.resize(_ + length);
@@ -77,14 +44,66 @@ export const asValid = value => {
   }
 };
 
+// // is this worth it at all? doesn't seem to be the bottleneck
+// /**
+//  * @param {RAM|Recursion} RAM
+//  * @param {number} type
+//  * @param {number} length
+//  */
+// export const pushLength1 = (RAM, type, length) => {
+//   let { _, a, $ } = RAM;
+//   if (length < 1) {
+//     //@ts-ignore
+//     if ($) a.buffer.resize(_ + 2);
+//     a[_++] = type;
+//     a[_++] = 0;
+//   }
+//   else if (length < (1 << 8)) {
+//     //@ts-ignore
+//     if ($) a.buffer.resize(_ + 3);
+//     a[_++] = type;
+//     a[_++] = 1;
+//     a[_++] = length;
+//   }
+//   else {
+//     ui32a[0] = length;
+//     let len = BYTES_PER_ELEMENT;
+//     while (len && !ui8a[len - 1]) len--;
+//     //@ts-ignore
+//     if ($) a.buffer.resize(_ + len + 2);
+//     a[_++] = type;
+//     a[_++] = len;
+//     for (let i = 0; i < len; i++) a[_++] = ui8a[i];
+//   }
+//   RAM._ = _;
+// };
+
+import { unsigned } from '../number.js';
+
+/**
+ * @param {RAM|Recursion} RAM
+ * @param {number} type
+ * @param {number} length
+ */
+export const pushLength = (RAM, type, length) => {
+  const [t, v] = unsigned(length);
+  let { _, a, $ } = RAM, len = v.length;
+  //@ts-ignore
+  if ($) a.buffer.resize(_ + len + 2);
+  a[_++] = type;
+  a[_++] = t;
+  for (let i = 0; i < len; i++) a[_++] = v[i];
+  RAM._ = _;
+};
+
 /**
  * @param {RAM} RAM
  * @param {number} value
  */
 export const pushValue = (RAM, value) => {
-  let { a, $ } = RAM;
+  let { _, a, $ } = RAM;
   //@ts-ignore
-  if ($) a.buffer.resize(RAM._ + 1);
+  if ($) a.buffer.resize(_ + 1);
   a[RAM._++] = value;
 };
 
@@ -93,7 +112,7 @@ export const pushValue = (RAM, value) => {
  * @param {number[]|Uint8Array} values
  */
 export const pushValues = (RAM, values) => {
-  let { a, $, _ } = RAM, i = 0, length = values.length;
+  let { _, a, $ } = RAM, i = 0, length = values.length;
   //@ts-ignore
   if ($) a.buffer.resize(_ + length);
   while (i < length) a[_++] = values[i++];
@@ -102,29 +121,12 @@ export const pushValues = (RAM, values) => {
 
 /**
  * @param {RAM} RAM
- * @param {Uint8Array} view
+ * @param {number[]|Uint8Array} view
  */
 export const pushView = (RAM, view) => {
-  let { a, $, _ } = RAM, length = view.length;
+  let { _, a, $ } = RAM, length = view.length;
   //@ts-ignore
   if ($) a.buffer.resize(_ + length);
   /** @type {Uint8Array} */(a).set(view, _);
   RAM._ += length;
 };
-
-/**
- * @this {any[]}
- * @param {any} v
- * @param {string|symbol} k
- */
-export function mapPair(v, k) {
-  if (asValid(v) && asValid(k)) this.push(k, v);
-}
-
-/**
- * @this {any[]}
- * @param {any} v
- */
-export function setValue(v) {
-  if (asValid(v)) this.push(v);
-}

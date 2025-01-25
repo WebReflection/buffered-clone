@@ -15,22 +15,22 @@ const structured = structuredClone(data);
 console.timeEnd('structuredClone');
 verify(structured);
 
-for (let i = 0; i < 5; i++) {
-  console.time('complex data via array');
+for (let i = 0; i < 10; i++) {
+  if (i > 8) console.time('complex data via array');
   const converted = convert(data);
-  console.timeEnd('complex data via array');
+  if (i > 8) console.timeEnd('complex data via array');
   verify(converted);
 
-  console.time('complex data via buffer');
+  if (i > 8) console.time('complex data via buffer');
   const encodedBuffer = encode(data, { resizable: true });
   const convertedViaBuffer = decode(encodedBuffer);
-  console.timeEnd('complex data via buffer');
+  if (i > 8) console.timeEnd('complex data via buffer');
   verify(convertedViaBuffer);
 
-  console.time('complex data via pre-allocated buffer');
+  if (i > 8) console.time('complex data via pre-allocated buffer');
   const buffer = new ArrayBuffer(encodedBuffer.length);
   const allocatedBuffer = decode(encode(data, { buffer }));
-  console.timeEnd('complex data via pre-allocated buffer');
+  if (i > 8) console.timeEnd('complex data via pre-allocated buffer');
   verify(allocatedBuffer);
 }
 
@@ -95,7 +95,7 @@ try {
   throw new Error('recursion should fail');
 }
 catch ({ message }) {
-  assert(message, 'Unexpected Recursion @ 9');
+  assert(message, 'Unexpected Recursion @ 10');
 }
 
 assert(decode(some, { recursion: 'some' }).join(','), [[],'a', 'a'].join(','));
@@ -105,8 +105,8 @@ encode(new Uint8Array(1 << 8).buffer);
 encode(new Uint8Array(1 << 16).buffer);
 encode(new Uint8Array(1 << 24).buffer);
 
-assert(decode(new Uint8Array([110, 1, 4, 43, 49, 101, 50])), 1e2);
-assert(decode(new Uint8Array([110, 1, 4, 43, 49, 69, 50])), 1E2);
+// assert(decode(new Uint8Array([110, 1, 4, 43, 49, 101, 50])), 1e2);
+// assert(decode(new Uint8Array([110, 1, 4, 43, 49, 69, 50])), 1E2);
 
 encode(() => {});
 encode(new DataView(new ArrayBuffer(0)), { resizable: true });
@@ -118,8 +118,8 @@ decode(encode([1, 1n, 1], { recursion: 'some' }), { recursion: 'some' });
 
 // test fallback for Error and TypedArray
 const name = [...encode('Unknown')];
-decode(new Uint8Array([101, ...name, ...encode('message')]));
-decode(new Uint8Array([84, ...name, ...encode(new ArrayBuffer(0))]));
+// decode(new Uint8Array([101, ...name, ...encode('message')]));
+// decode(new Uint8Array([84, ...name, ...encode(new ArrayBuffer(0))]));
 
 // toBufferedClone
 const toBufferedClone = Symbol.for('buffered-clone');
@@ -201,3 +201,46 @@ assert(invokes, 1);
 assert(arr.length, 3);
 assert(arr[0], arr[1]);
 assert(arr[2], 'ok');
+
+assert(decode(encode(-1)), -1);
+assert(decode(encode(-128)), -128);
+assert(decode(encode(-70000)), -70000);
+assert(decode(encode(-3000000)), -3000000);
+assert(decode(encode(-4294967296 / 2)), -4294967296 / 2);
+assert(decode(encode(4294967296)), 4294967296);
+assert(decode(encode(-1n)), -1n);
+assert(decode(encode(1n)), 1n);
+
+for (const Class of [
+  Int8Array,
+  Int16Array,
+  Int32Array,
+  Uint8Array,
+  Uint16Array,
+  Uint32Array,
+  Float32Array,
+  Float64Array,
+  BigInt64Array,
+  BigUint64Array,
+]) {
+  assert(decode(encode(new Class(1))).constructor, Class);
+}
+
+assert(decode(encode(['a', 'a'], { resizable: true, recursion: 'none' })).join(','), 'a,a');
+
+import * as number from '../src/number.js';
+import { U16, U32, F32 } from '../src/constants.js';
+
+assert(decode(new Uint8Array([U16, ...number.u16.encode(123)])), 123);
+assert(decode(new Uint8Array([U32, ...number.u32.encode(123)])), 123);
+assert(decode(new Uint8Array([F32, ...number.f32.encode(123)])), 123);
+
+assert(number.u16.encode(123).length, 2);
+assert(number.u32.encode(123).length, 4);
+assert(number.f32.encode(123).length, 4);
+
+class NotError extends Error {
+  name = 'NotError';
+}
+
+assert(decode(encode(new NotError('because'))).message, 'because');
