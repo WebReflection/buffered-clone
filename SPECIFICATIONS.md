@@ -80,7 +80,8 @@ When a serializable value is *encoded* it means that it returned an array of *ui
 Each serializable value in this space has its own array representation as standalone, working, buffered view of its value.
 
 ```js
-encode(true)        // [98, 1]
+encode(false)       // [98]
+encode(true)        // [99]
 encode(null)        // [0]
 encode(1)           // [110, 1, 1, 49]
 encode('a')         // [115, 1, 1, 97]
@@ -297,14 +298,14 @@ Where `110` is the ASCII code associated to the char `n`.
 Booleans are represented as such:
 
 ```js
-// True
-[98, 1]
-
 // False
-[98, 0]
+[98]
+
+// True
+[99]
 ```
 
-Where `98` is the ASCII code associated to the char `b`.
+Where `98` is the ASCII code associated to the char `b` and `99` is just `98 + 1` for *true*.
 
   </div>
 </details>
@@ -734,7 +735,8 @@ When a serialized value is *decoded* it means that it returned any compatible va
 By contract, *decode* needs to handle any `[type, ...codes]` possible combination, where each combination will be described in the next paragraphs, but here there's a *gist*:
 
 ```js
-decode([98, 1])                       // true
+decode([98])                          // false
+decode([99])                          // true
 decode([0])                           // null
 decode([110, 1, 1, 49])               // 1
 decode([115, 1, 1, 97])               // 'a'
@@ -760,7 +762,7 @@ const encoded =  [
   79,             // type
   1,  2,          // length of key/value pairs
   115, 1, 1, 98,  // first key (string)
-  98,   1         // first value (boolean)
+  99              // first value (boolean)
 ];
 
 decode(encoded)
@@ -797,9 +799,9 @@ Accordingly with its *encoding*, an *array* (*list* or *tuple* in *Python*) has 
 const encoded =  [
   65,             // type
   1,  2,          // length of values
-  98,   1,        // first value (boolean)
-  98,   0         // second value (boolean)
-];
+  99,             // first value (boolean)
+  98,             // second value (boolean)
+]
 
 decode(encoded)
 // [true, false]
@@ -889,24 +891,20 @@ In current *JS* implementation, the latest is done via `parseFloat` which can ha
 Accordingly with its *encoding*, a *boolean* is a `2` *codes* *array* with both *type*, which is `98`, and the *true* or *false* value as second entry:
 
 ```js
-decode([98, 1])
+decode([99])
 // true
 
-decode([98, 0])
+decode([98])
 // false
 ```
 
 A *meta* implementation of this algorithm can be described as such:
 
 ```js
-// current decoding position
-let index = 0;
-
-type(encoded)  // 98 => string
-
-let boolean = encoded[index++];
-// true or false
+type(encoded) // 98 => `false` or 99 => `true`
 ```
+
+Any `boolean` value does not need extra work: if the *type* is either `98` or `99` nothing else needs to be done.
 
   </div>
 </details>

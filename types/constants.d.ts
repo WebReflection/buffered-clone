@@ -14,5 +14,6 @@ export const TYPED: 84;
 export const ERROR: 101;
 export const REGEXP: 82;
 export const STRING: 115;
-export const BOOLEAN: 98;
+export const FALSE: 98;
+export const TRUE: 99;
 export const FUNCTION: 102;
