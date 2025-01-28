@@ -1,34 +1,51 @@
 //@ts-check
 
 import {
-  NULL,
-  TRUE,
-  FALSE,
-  NUMBER,
-  STRING,
+  // JSON
   ARRAY,
   OBJECT,
-  BUFFER,
-  TYPED,
-  RECURSIVE,
+  STRING,
+  TRUE,
+  FALSE,
+  NULL,
+
+  // numbers
+  NUMBER,
   BIGINT,
+
+  // typed
+  I8A, I8,
+  U8A, U8,
+  I16A, I16,
+  U16A, U16,
+  I32A, I32,
+  F32A, F32,
+  U32A, U32,
+  I64A, I64,
+  F64A, F64,
+  U64A, U64,
+
+  // JS types
+  BUFFER,
+  RECURSIVE,
   ERROR,
   REGEXP,
   SET,
   MAP,
   DATE,
+  DATAVIEW,
 } from './constants.js';
 
 import {
-  pushLength,
   asASCII,
   asValid,
+  pushLength,
   pushValue,
   pushValues,
   pushView,
-  mapPair,
-  setValue,
 } from './encode/utils.js';
+
+import * as number from './number.js';
 
 /** @typedef {Map<any,number[]>} Cache */
 /** @typedef {0|1|2} recursion */
@@ -49,14 +66,13 @@ const { isArray } = Array;
 const { isView } = ArrayBuffer;
 const { isFinite } = Number;
 const { entries } = Object;
-const { toStringTag } = Symbol;
 
 const toBufferedClone = Symbol.for('buffered-clone');
 
 const encoder = new TextEncoder;
 
 /**
- * @param {Map} value
+ * @param {Cache} map
  * @param {any} value
  * @param {number} at
  */
@@ -64,7 +80,7 @@ const recursive = (map, value, at) => {
   const a = [];
   map.set(value, a);
   pushLength(
-    /** @type {Recursion} */({ a, $: false, _: 0 }),
+    /** @type {Recursion} */({ _: 0, a, $: false }),
     RECURSIVE,
     at
   );
@@ -74,7 +90,7 @@ class Encoder {
   /**
    * @param {recursion} r
    * @param {number[]|Uint8Array} a
-   * @param {Cache?} m
+   * @param {Cache} m
    * @param {boolean} resizable
    * @param {boolean} typed
    */
@@ -100,22 +116,12 @@ class Encoder {
   }
 
   /**
-   * @param {bigint} value
-   */
-  bigint(value) {
-    this.track(1, value);
-    asASCII(this, BIGINT, String(value));
-  }
-
-  /**
    * @param {ArrayBufferLike} value
    */
   buffer(value) {
     this.track(0, value);
     const ui8a = new Uint8Array(value);
-    pushLength(this, BUFFER, ui8a.length);
-    if (this.T) pushView(this, ui8a);
-    else pushValues(this, ui8a);
+    this.push(BUFFER, ui8a);
   }
 
   /**
@@ -150,6 +156,7 @@ class Encoder {
           case toBufferedClone in value: this.indirect(value); break;
           case value.constructor === Object: this.generic(value); break;
           case isArray(value): this.array(value); break;
+          //@ts-ignore
           case isView(value): this.typed(value); break;
           case value instanceof Date: this.date(value); break;
           case value instanceof ArrayBuffer: this.buffer(value); break;
@@ -167,9 +174,9 @@ class Encoder {
         break;
       }
       case 'string': this.string(value); break;
-      case 'number': this.number(value); break;
+      case 'number': isFinite(value) ? this.number(NUMBER, value) : pushValue(this, NULL); break;
       case 'boolean': pushValue(this, value ? TRUE : FALSE); break;
-      case 'bigint': this.bigint(value); break;
+      case 'bigint': this.number(BIGINT, value); break;
       default: if (asNull) pushValue(this, NULL); break;
     }
   }
@@ -180,8 +187,8 @@ class Encoder {
   generic(value) {
     this.track(0, value);
     const values = [];
-    for (let pairs = entries(value), i = 0, l = pairs.length; i < l; i++) {
-      const [k, v] = pairs[i];
+    for (let pairs = entries(value), j = 0, l = pairs.length; j < l; j++) {
+      const [k, v] = pairs[j];
       if (asValid(v)) values.push(k, v);
     }
     this.object(OBJECT, values);
@@ -202,7 +209,7 @@ class Encoder {
     if (wrapped === wrap) {
       if (recursion) {
         pushValue(this, NULL);
-        /** @type {Cache} */(m).set(wrap, [0]);
+        m.set(wrap, [0]);
       }
     }
     else {
@@ -210,8 +217,8 @@ class Encoder {
       // if the returned value was not recursive
       // avoid multiple invocations of the method
       // by storing whatever result it produced
-      if (recursion && !/** @type {Cache} */(m).has(wrapped))
-        /** @type {Cache} */(m).set(wrap, /** @type {number[]} */(a.slice(_)));
+      if (recursion && !m.has(wrapped))
+        m.set(wrap, /** @type {number[]} */(a.slice(_)));
     }
   }
 
@@ -221,7 +228,7 @@ class Encoder {
    */
   known(value) {
     if (this.r > 0) {
-      const recursive = /** @type {Cache} */(this.m).get(value);
+      const recursive = this.m.get(value);
       if (recursive) {
         pushValues(this, recursive);
         return true;
@@ -236,19 +243,26 @@ class Encoder {
   map(value) {
     this.track(0, value);
     const values = [];
-    value.forEach(mapPair, values);
+    let i = 0;
+    for (const [k, v] of value) {
+      if (asValid(v) && asValid(k)) {
+        values[i++] = k;
+        values[i++] = v;
+      }
+    }
     this.object(MAP, values);
   }
 
   /**
-   * @param {number} value
+   * @param {NUMBER|BIGINT} type
+   * @param {number|bigint} value
    */
-  number(value) {
-    if (isFinite(value)) {
-      this.track(1, value);
-      asASCII(this, NUMBER, String(value));
-    }
-    else pushValue(this, NULL);
+  number(type, value) {
+    this.track(1, value);
+    const [t, v] = number.encode(type, value);
+    pushValue(this, t);
+    if (this.T) pushView(this, v);
+    else pushValues(this, v);
   }
 
   /**
@@ -260,6 +274,16 @@ class Encoder {
     pushLength(this, type, length);
     for (let i = 0; i < length; i++)
       this.encode(values[i], false);
+  }
+
+  /**
+   * @param {number} type
+   * @param {number[]|Uint8Array<ArrayBufferLike>} view
+   */
+  push(type, view) {
+    pushLength(this, type, view.length);
+    if (this.T) pushView(this, view);
+    else pushValues(this, view);
   }
 
   /**
@@ -279,7 +303,10 @@ class Encoder {
   set(value) {
     this.track(0, value);
     const values = [];
-    value.forEach(setValue, values);
+    let i = 0;
+    for (const v of value) {
+      if (asValid(v)) values[i++] = v;
+    }
     this.object(SET, values);
   }
 
@@ -287,12 +314,20 @@ class Encoder {
    * @param {string} value
    */
   string(value) {
-    if (value.length) {
-      this.track(1, value);
-      const str = encoder.encode(value);
-      pushLength(this, STRING, str.length);
-      if (this.T) pushView(this, str);
-      else pushValues(this, str);
+    const vLength = value.length;
+    if (vLength) {
+      const { _, r, m } = this;
+      if (r < 1) {
+        const str = m.get(value);
+        if (str) {
+          if (this.T) pushView(this, str);
+          else pushValues(this, str);
+          return;
+        }
+      }
+      this.push(STRING, encoder.encode(value));
+      if (r > 1) recursive(m, value, _);
+      else m.set(value, /** @type {number[]} */(this.a.slice(_)));
     }
     else pushValues(this, [STRING, 0]);
   }
@@ -302,19 +337,31 @@ class Encoder {
    * @param {any} value
    */
   track(level, value) {
-    if (this.r > level) recursive(this.m, value, this._);
+    if (this.r > level)
+      recursive(this.m, value, this._);
   }
 
   /**
-   * @param {ArrayBufferView} view
+   * @param {import("./number.js").TypedArray|DataView} view
    */
   typed(view) {
     this.track(0, view);
-    pushValue(this, TYPED);
-    //@ts-ignore
-    const { [toStringTag]: Class, buffer } = view;
-    if (!this.known(Class)) asASCII(this, STRING, Class);
-    if (!this.known(buffer)) this.buffer(buffer);
+    let type = NULL;
+    if (view instanceof Int8Array) type = I8A;
+    else if (view instanceof Uint8Array) type = U8A;
+    // else if (view instanceof Uint8ClampedArray) type = U8CA;
+    else if (view instanceof Int16Array) type = I16A;
+    else if (view instanceof Uint16Array) type = U16A;
+    else if (view instanceof Int32Array) type = I32A;
+    else if (view instanceof Uint32Array) type = U32A;
+    // else if (view instanceof Float16Array) type = F16A;
+    else if (view instanceof Float32Array) type = F32A;
+    else if (view instanceof Float64Array) type = F64A;
+    else if (view instanceof BigInt64Array) type = I64A;
+    else if (view instanceof BigUint64Array) type = U64A;
+    else if (view instanceof DataView) type = DATAVIEW;
+    pushValue(this, type);
+    if (type !== NULL && !this.known(view.buffer)) this.buffer(view.buffer);
   }
 }
 
@@ -336,7 +383,7 @@ export default (value, options = null) => {
     new Uint8Array(buffer || new ArrayBuffer(0, { maxByteLength })) :
     []
   ;
-  const m = r > 0 ? new Map : null;
+  const m = new Map;
   (new Encoder(r, a, m, resizable, typed)).encode(value, false);
   return typed ? /** @type {Uint8Array} */(a) : new Uint8Array(a);
 };
