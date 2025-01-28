@@ -14,7 +14,11 @@ A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/stru
   * it allows growing *buffers* if resizable
   * it understands and convert all *Rust* number types (with the `128` variant exception)
 
-**[Specifications](./SPECIFICATIONS.md)**: all you need to know about this simple, efficient, and portable protocol.
+- - -
+
+## Specifications
+
+All you need to know about this simple, efficient, and portable protocol is [in the SPECIFICATIONS file](./SPECIFICATIONS.md).
 
 - - -
 

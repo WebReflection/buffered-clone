@@ -1,17 +1,14 @@
 # Specifications
 
-## WIP
-
-Basic specifications for this protocol.
+These are the most on-topic and concise specs I could think about and it's all about describing this "*protocol*" idea that has been proven to already work really fast, really robust, and really well.
 
 ### Basics: encode or decode with optional recursion
 
-> ℹ️ **Note**
-> The main goal of this protocol is **simplicity**, as in *simple to implement* and *simple to read and reason about* while either *encoding* or *decoding* data.
+> 𝒊 **Note**: the main goal of this protocol is **simplicity**, as in *simple to implement* and *simple to read and reason about* while either *encoding* or *decoding* data.
 
 Both `encode` and `decode` functionalities are symmetric and always produce a *buffer* that can be linearly encoded or decoded from `0` to its length through a view based on *u8* numbers or through a *Uint8Array* view in *JS*.
 
-The decoding should keep track of its current index while moving forward and it would never overflow the buffer boundaries.
+The decoding should keep track of its current index while moving forward and it would never overflow the buffer boundaries, making this whole idea suitable for pre-allocated buffers too, as it doesn't matter their size while decoding.
 
 The *recursion* *type* is basically just a pointer to the buffer/view *index* where that data can be found again, simplifying multiple encoding or decoding of simple to complex data.
 
@@ -44,7 +41,7 @@ It's up to implementations to fine-tune recursion (strings, only objects or arra
 
 #### Numbers Encoding
 
-In *JS* numbers' type are a convention as it understands only `bigint` and *Float64* `number` precision.
+In *JS* numbers' types are just a convention as it understands only `bigint` and *Float64* `number` precision.
 
 However, both types would use *8 bytes* to represent even small data and it's neither compact nor convenient so that, while it's possible to always use *F64* as type for *JS* numbers and *I64* for bigints without breaking *decoding*, it's recommended to keep the buffer smaller, understanding the right type and letting *decode* cast to `i32` or others while processing.
 
@@ -136,7 +133,7 @@ function decode(source, cursor = { i: 0 }) {
       value.push(decode(source, cursor))
     return value
   }
-  // u8 type as length
+  // u8 type as length or value
   if (type == 133) {
     value = source[cursor.i++]
     return value
@@ -155,7 +152,7 @@ Each *boolean* is a single byte, representing it's `false` or `true` value where
 
 #### Boolean Decoding
 
-When `98` or `99` are found as *type*, the former will return `true` and the latter will return `false`.
+When `98` or `99` are found as *type*, the former will return `false` and the latter will return `true`.
 
 ```js
 // example purpose: this only decodes booleans
@@ -273,7 +270,7 @@ Objects are encoded like arrays with a size that represent all *key* *value* pai
 
 #### Object Decoding
 
-Objects are decoded like arrays where each `i` and `i + 1` up to their `size` represent a *key* and a `*value* pair.
+Objects are decoded like arrays where each `i` and `i + 1` up to their `size` represent a *key* and a *value* pair.
 
 ```js
 // example purpose: this only decodes an object
@@ -342,6 +339,14 @@ function decode(source, cursor = { i: 0 }) {
     iso = utf8_decode(codes)
     return new Date(iso)
   }
+  // date content as string
+  if (type == 115) {
+    length = decode(source, cursor)
+    i = cursor.i
+    cursor.i += length
+    codes = source.slice(i, cursor.i)
+    return utf8_decode(codes)
+  }
 }
 ```
 
@@ -362,8 +367,7 @@ Both *recursion* and *buffer* as essential types to define *typed list of number
 
 Whenever enabled or desired as feature, *recursion* requires tracking of, at least, non primitive values such as *arrays* or *object* (dictionaries).
 
-> ℹ️ **Note**
-> All unique types work as a standalone entity, hence any of these could be recursive. Strings as *key* can be used as *values* too and the same goes for *numbers* and everything else. It does not matter where these have been seen for the very first time, it matters that pointing at that very specific index will produce again the exact same identical value and that's where the simplicity of this protocol shine.
+> 𝒊 **Note**: all unique types work as a standalone entity, hence any of these could be recursive. Strings as *key* can be used as *values* too and the same goes for *numbers* and everything else. It does not matter where these have been seen for the very first time, it matters that pointing at that very specific index will produce again the exact same identical value and that's where the simplicity of this protocol shines.
 
 A *recursive* type is nothing more than its *type* plus a number that points at the current "*buffer index*" while *encoding*.
 
@@ -509,7 +513,7 @@ encode([u8, i8])
   65,
   133, 2,
   132,              // u8[] type
-    66, 133, 1, 0,  // buffer type as [0] (@ 4)
+    66, 133, 1, 0,  // buffer type as [0] (@ index 4)
   128,              // i8[] type
     114, 133, 4     // recursive buffer @ index 4
 ]
@@ -537,10 +541,10 @@ These types are not strictly necessary in other *PLs* but are nice to have in th
 
 Hopefully all ways to encode and decode data is clear by now and there's nothing really special about these values:
 
-  * an **Error** is encoded like `{"name": error.name, "message": error.message}` except its *type* is `101`. When *decoding*, if the *name* is not a globally available *Error* constructor, a `new Error(message)` is used instead as fallback
-  * a **Map** is encoded like `{entry_key0: entry_value0, entry_keyX: entry_valueX}` except its *type* is `77`
-  * a **RegExp** is encoded like `{"source": re.source, "flags": re.flags}` except its *type* is `82`
-  * a **Set** is encoded like `[value0, valueX]` except its type is `83`
-  * a **DataView** is encoded like any other *typed list* except its *type* is `118`
+  * an **Error** is encoded like `[101, ...encode_string(error.name), ...encode_string(error.message)]`, where the *name* is the type of error and the *message* is its ... well, *message*. While *decoding*, if the *name* is not a globally available/known *Error* class, a `new Error(message)` is used instead as fallback to preserve cross *PL* portability.
+  * a **Map** is encoded like `[77, ...encode_value(entry_keyX),  ...encode_value(entry_valueX)]`
+  * a **RegExp** is encoded like `[82,  ...encode_string(re.source), ...encode_string(re.flags)]`
+  * a **Set** is encoded like `[83, ...encode_value(valueX)]`
+  * a **DataView** is encoded like any other *typed list* except its *type* is `118`: `[118, ...encode_buffer(value)]`
 
 - - -
