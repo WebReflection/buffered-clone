@@ -10,5 +10,5 @@ addEventListener('message', () => {
   postMessage(['encode', sab]);
   Atomics.wait(new Int32Array(sab), 0);
   const value = new Uint8Array(sab);
-  postMessage(['verify', decode(value)])
+  postMessage(['verify', decode(value)]);
 });
