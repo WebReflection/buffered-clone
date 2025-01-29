@@ -28,6 +28,9 @@
       "import": "./src/encode.js",
       "types": "./types/encode.d.ts"
     },
+    "./json": {
+      "import": "./src/json/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
