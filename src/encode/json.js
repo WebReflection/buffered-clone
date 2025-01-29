@@ -1,6 +1,6 @@
 //@ts-check
 
-/** @typedef {import("../encode.js").RAM} RAM */
+/** @typedef {import("../json/encode.js").RAM} RAM */
 /** @typedef {import("../encode.js").Recursion} Recursion */
 
 /**
@@ -11,15 +11,7 @@
 export const asASCII = (RAM, type, str) => {
   const { length } = str;
   pushLength(RAM, type, length);
-  let { _, a, $ } = RAM;
-  if ($) {
-    //@ts-ignore
-    a.buffer.resize(_ + length);
-    // ⚠️ this cannot be done with a resizable buffer: WHY?!?
-    // ⚠️ this likely cannot be done with a SharedArrayBuffer too!
-    // encoder.encodeInto(str, a.subarray(_));
-    // RAM._ += length;
-  }
+  let { _, a } = RAM;
   for (let i = 0; i < length; i++)
     a[_++] = str.charCodeAt(i);
   RAM._ = _;
@@ -39,7 +31,8 @@ export const asValid = value => {
   }
 };
 
-import { unsigned } from '../number.js';
+import { F64 } from '../constants.js';
+import { f64 } from '../number.js';
 
 /**
  * @param {RAM|Recursion} RAM
@@ -47,12 +40,10 @@ import { unsigned } from '../number.js';
  * @param {number} length
  */
 export const pushLength = (RAM, type, length) => {
-  const [t, v] = unsigned(length);
-  let { _, a, $ } = RAM, len = v.length;
-  //@ts-ignore
-  if ($) a.buffer.resize(_ + len + 2);
+  const v = f64.encode(length);
+  let { _, a } = RAM, len = v.length;
   a[_++] = type;
-  a[_++] = t;
+  a[_++] = F64;
   for (let i = 0; i < len; i++) a[_++] = v[i];
   RAM._ = _;
 };
@@ -62,10 +53,7 @@ export const pushLength = (RAM, type, length) => {
  * @param {number} value
  */
 export const pushValue = (RAM, value) => {
-  let { _, a, $ } = RAM;
-  //@ts-ignore
-  if ($) a.buffer.resize(_ + 1);
-  a[RAM._++] = value;
+  RAM.a[RAM._++] = value;
 };
 
 /**
@@ -73,9 +61,7 @@ export const pushValue = (RAM, value) => {
  * @param {number[]|Uint8Array} values
  */
 export const pushValues = (RAM, values) => {
-  let { _, a, $ } = RAM, i = 0, length = values.length;
-  //@ts-ignore
-  if ($) a.buffer.resize(_ + length);
+  let { _, a } = RAM, i = 0, length = values.length;
   while (i < length) a[_++] = values[i++];
   RAM._ = _;
 };
@@ -85,9 +71,7 @@ export const pushValues = (RAM, values) => {
  * @param {number[]|Uint8Array} view
  */
 export const pushView = (RAM, view) => {
-  let { _, a, $ } = RAM, length = view.length;
-  //@ts-ignore
-  if ($) a.buffer.resize(_ + length);
+  let { _, a } = RAM, length = view.length;
   /** @type {Uint8Array} */(a).set(view, _);
   RAM._ += length;
 };

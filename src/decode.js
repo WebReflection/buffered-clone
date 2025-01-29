@@ -150,6 +150,7 @@ class Decoder {
       case REGEXP:    return track(this.m, as, this.regexp());
       case ERROR:     return track(this.m, as, this.error());
       default: {
+        M.clear();
         const type = fromCharCode(this.a[as]);
         throw new TypeError(`Unable to decode type: ${type}`);
       }
