@@ -10,6 +10,7 @@ import {
   NULL,
 
   // numbers
+  U8,
   U8A,
   I64,
   F64,
@@ -122,8 +123,14 @@ class Decoder {
 
   length() {
     let { i, a } = this;
-    this.i += 9;
-    return /** @type {number} */(f64.decode(a.subarray(i + 1, this.i)));
+    if (a[i++] === U8) {
+      this.i += 2;
+      return a[i];
+    }
+    else {
+      this.i += 9;
+      return /** @type {number} */(f64.decode(a.subarray(i, this.i)));
+    }
   }
 
   /**

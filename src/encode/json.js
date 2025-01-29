@@ -31,7 +31,7 @@ export const asValid = value => {
   }
 };
 
-import { F64 } from '../constants.js';
+import { U8, F64 } from '../constants.js';
 import { f64 } from '../number.js';
 
 /**
@@ -40,11 +40,18 @@ import { f64 } from '../number.js';
  * @param {number} length
  */
 export const pushLength = (RAM, type, length) => {
-  const v = f64.encode(length);
-  let { _, a } = RAM, len = v.length;
-  a[_++] = type;
-  a[_++] = F64;
-  for (let i = 0; i < len; i++) a[_++] = v[i];
+  let { _, a } = RAM;
+  if (-1 < length && length < 256) {
+    a[_++] = type;
+    a[_++] = U8;
+    a[_++] = length;
+  }
+  else {
+    const v = f64.encode(length);
+    a[_++] = type;
+    a[_++] = F64;
+    for (let i = 0; i < v.length; i++) a[_++] = v[i];
+  }
   RAM._ = _;
 };
 
