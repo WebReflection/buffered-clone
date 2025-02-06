@@ -30,6 +30,7 @@ import {
   MAP,
   DATE,
   DATAVIEW,
+  IMAGEDATA,
 } from './constants.js';
 
 import * as number from './number.js';
@@ -137,6 +138,8 @@ class Decoder {
       case F64A:      return track(this.m, as, new Float64Array(this.decode()));
       case U64A:      return track(this.m, as, new BigUint64Array(this.decode()));
       case DATAVIEW:  return track(this.m, as, new DataView(this.decode()));
+      /* c8 ignore next */
+      case IMAGEDATA: return this.imageData(as);
       // boolean
       case TRUE:      return true;
       case FALSE:     return false;
@@ -165,6 +168,19 @@ class Decoder {
     const name = this.ascii();
     const Class = globalThis[name] || Error;
     return new Class(this.decode());
+  }
+
+  /* c8 ignore next 10 */
+  imageData(as) {
+    const data = this.decode();
+    const width = this.decode();
+    const height = this.decode();
+    this.i++;
+    const colorSpace = /** @type {PredefinedColorSpace} */(this.ascii());
+    const ui8c = new Uint8ClampedArray(data.buffer);
+    const value = new ImageData(ui8c, width, height, { colorSpace });
+    this.m.set(as, value);
+    return value;
   }
 
   length() {

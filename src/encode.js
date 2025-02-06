@@ -14,16 +14,17 @@ import {
   BIGINT,
 
   // typed
-  I8A, I8,
-  U8A, U8,
-  I16A, I16,
-  U16A, U16,
-  I32A, I32,
-  F32A, F32,
-  U32A, U32,
-  I64A, I64,
-  F64A, F64,
-  U64A, U64,
+  I8A,
+  U8A,
+  U8CA,
+  I16A,
+  U16A,
+  I32A,
+  F32A,
+  U32A,
+  I64A,
+  F64A,
+  U64A,
 
   // JS types
   BUFFER,
@@ -34,6 +35,7 @@ import {
   MAP,
   DATE,
   DATAVIEW,
+  IMAGEDATA,
 } from './constants.js';
 
 import {
@@ -66,6 +68,8 @@ const { isArray } = Array;
 const { isView } = ArrayBuffer;
 const { isFinite } = Number;
 const { entries } = Object;
+
+const ImageData = globalThis.ImageData || class {};
 
 const toBufferedClone = Symbol.for('buffered-clone');
 
@@ -163,6 +167,8 @@ class Encoder {
           case value instanceof Map: this.map(value); break;
           case value instanceof Set: this.set(value); break;
           case value instanceof RegExp: this.regexp(value); break;
+          /* c8 ignore next */
+          case value instanceof ImageData: this.imageData(/** @type {ImageData} */(value)); break;
           case value instanceof Error: this.error(value); break;
           // TODO: objects like new Boolean(false) or others
           //       don't exist in other PLs and I still haven't
@@ -192,6 +198,19 @@ class Encoder {
       if (asValid(v)) values.push(k, v);
     }
     this.object(OBJECT, values);
+  }
+
+  /* c8 ignore next 11 */
+  /**
+   * @param {ImageData} value
+   */
+  imageData(value) {
+    this.track(0, value);
+    pushValue(this, IMAGEDATA);
+    this.encode(value.data, false);
+    this.encode(value.width, false);
+    this.encode(value.height, false);
+    asASCII(this, STRING, value.colorSpace);
   }
 
   /**
@@ -349,7 +368,8 @@ class Encoder {
     let type = NULL;
     if (view instanceof Int8Array) type = I8A;
     else if (view instanceof Uint8Array) type = U8A;
-    // else if (view instanceof Uint8ClampedArray) type = U8CA;
+    /* c8 ignore next */
+    else if (view instanceof Uint8ClampedArray) type = U8A;
     else if (view instanceof Int16Array) type = I16A;
     else if (view instanceof Uint16Array) type = U16A;
     else if (view instanceof Int32Array) type = I32A;

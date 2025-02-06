@@ -28,6 +28,7 @@ export const STRING     = /** @type {115} */(  $('s')  );
 export const ASCII      =  /** @type {97} */(  $('a')  );
 export const FALSE      =  /** @type {98} */(  $('b')  );
 export const TRUE       =  /** @type {99} */(  $('c')  );
+export const IMAGEDATA  = /** @type {100} */(  $('d')  );
 export const FUNCTION   = /** @type {102} */(  $('f')  );
 export const DATAVIEW   = /** @type {118} */(  $('v')  );
 
@@ -36,7 +37,8 @@ export const DATAVIEW   = /** @type {118} */(  $('v')  );
 export const I8A        = 128;
 export const I8         = 129;
 
-// space for Uint8ClampedArray
+export const U8CA       = 130;
+export const U8C        = 131;
 
 export const U8A        = 132;
 export const U8         = 133;

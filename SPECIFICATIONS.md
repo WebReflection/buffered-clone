@@ -538,6 +538,7 @@ These types are not strictly necessary in other *PLs* but are nice to have in th
 | REGEXP    | `82`  | R     |
 | SET       | `83`  | S     |
 | DATAVIEW  | `118` | v     |
+| IMAGEDATA | `100` | d     |
 
 Hopefully all ways to encode and decode data is clear by now and there's nothing really special about these values:
 
@@ -546,5 +547,6 @@ Hopefully all ways to encode and decode data is clear by now and there's nothing
   * a **RegExp** is encoded like `[82,  ...encode_string(re.source), ...encode_string(re.flags)]`
   * a **Set** is encoded like `[83, ...encode_value(valueX)]`
   * a **DataView** is encoded like any other *typed list* except its *type* is `118`: `[118, ...encode_buffer(value)]`
+  * an **ImageData** is encoded like `[100, ...encode_value(entry_data), ...encode_value(entry_width), ...encode_value(entry_height), ...encode_value(entry_colorSpace)]` with the buffer defined as *u8a*, instead of clamped, for simplicity sake. When decoded a `new Uint8ClampedArray(u8a.buffer)` *must* be used to allow `ImageData` to properly work but by all mean a *Uint8Array* can represent a *Uint8ClampedArray*.
 
 - - -
