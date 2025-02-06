@@ -4,7 +4,7 @@
 
 <sup>**Social Media Photo by [marc belver colomer](https://unsplash.com/@marc_belver) on [Unsplash](https://unsplash.com/)**</sup>
 
-A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported JS types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types) into a binary format.
+A [structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone) like utility that converts all [supported JS types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types), plus [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData), into a binary format.
 
 **Highlights**
 

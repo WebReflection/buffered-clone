@@ -170,7 +170,7 @@ class Decoder {
     return new Class(this.decode());
   }
 
-  /* c8 ignore next 10 */
+  /* c8 ignore next 11 */
   imageData(as) {
     const data = this.decode();
     const width = this.decode();
