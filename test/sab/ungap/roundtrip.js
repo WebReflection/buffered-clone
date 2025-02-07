@@ -1,7 +1,7 @@
 import { parse } from 'https://esm.run/@ungap/structured-clone/json';
 
 const { BYTES_PER_ELEMENT: I32 } = Int32Array;
-const maxByteLength = 2 ** 24;
+const maxByteLength = (2 ** 31) - 1;
 
 const decoder = new TextDecoder;
 

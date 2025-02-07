@@ -299,7 +299,7 @@ const M = new Map;
  */
 export default (ui8a, options) => {
   const r = options?.recursion;
-  const value = new Decoder(r === 'none' ? V : M, ui8a, r !== 'some').decode();
+  const value = ui8a.length ? new Decoder(r === 'none' ? V : M, ui8a, r !== 'some').decode() : void 0;
   M.clear();
   return value;
 };

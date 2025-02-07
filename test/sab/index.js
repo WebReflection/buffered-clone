@@ -1,8 +1,9 @@
 import { stringify } from 'https://esm.run/@ungap/structured-clone/json';
 import { encode } from '../../src/index.js';
 
-// this cannot be used otherwise structured-clone fails
 import { data, verify } from '../data.js';
+// const data = await (await fetch('../worker/carts.json')).json();
+// const verify = () => true;
 
 const RUNS = 10;
 const Workers = new WeakMap;
@@ -42,34 +43,6 @@ const test = async handler => {
   // worker.terminate();
 };
 
-const ungap = {
-  resolve: null,
-  name: 'structured-clone/json',
-  url: 'ungap/roundtrip.js',
-  encoder: new TextEncoder,
-  handleEvent({ data: [ACTION, sab] }) {
-    if (ACTION === 'encode') {
-      const encoded = this.encoder.encode(stringify(data));
-      const { length } = encoded;
-      let i = length + 4;
-      while (i % 4) i++;
-      sab.grow(i);
-      new Uint8Array(sab).set(encoded, 4);
-      const i32a = new Int32Array(sab);
-      i32a[0] = length;
-      Atomics.notify(i32a, 0);
-    }
-    else if (ACTION === 'verify') {
-      console.timeEnd(this.name);
-      verify(sab);
-      this.resolve();
-    }
-  }
-};
-
-for (let i = 0; i < RUNS; i++) await test(ungap);
-await terminate(ungap);
-
 const coincident = {
   resolve: null,
   name: 'coincident',
@@ -101,6 +74,34 @@ const coincident = {
 
 for (let i = 0; i < RUNS; i++) await test(coincident);
 await terminate(coincident);
+
+const ungap = {
+  resolve: null,
+  name: 'structured-clone/json',
+  url: 'ungap/roundtrip.js',
+  encoder: new TextEncoder,
+  handleEvent({ data: [ACTION, sab] }) {
+    if (ACTION === 'encode') {
+      const encoded = this.encoder.encode(stringify(data));
+      const { length } = encoded;
+      let i = length + 4;
+      while (i % 4) i++;
+      sab.grow(i);
+      new Uint8Array(sab).set(encoded, 4);
+      const i32a = new Int32Array(sab);
+      i32a[0] = length;
+      Atomics.notify(i32a, 0);
+    }
+    else if (ACTION === 'verify') {
+      console.timeEnd(this.name);
+      verify(sab);
+      this.resolve();
+    }
+  }
+};
+
+for (let i = 0; i < RUNS; i++) await test(ungap);
+await terminate(ungap);
 
 const bufferedTwice = {
   resolve: null,
@@ -140,11 +141,16 @@ const buffered = {
   handleEvent({ data: [ACTION, sab] }) {
     if (ACTION === 'encode') {
       const encoded = encode(data);
+      const i32a = new Int32Array(sab);
       let { length } = encoded;
-      length += length % 4;
-      sab.grow(length);
-      new Uint8Array(sab).set(encoded);
-      Atomics.notify(new Int32Array(sab), 0);
+      if (length < 1) i32a[0] = -1;
+      else if (length < 2) i32a[0] = 1;
+      else {
+        while (length % 4) length++;
+        sab.grow(length);
+        new Uint8Array(sab).set(encoded);
+      }
+      Atomics.notify(i32a, 0);
     }
     else if (ACTION === 'verify') {
       console.timeEnd(this.name);
