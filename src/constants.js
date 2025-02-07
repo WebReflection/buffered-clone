@@ -37,13 +37,13 @@ export const DATAVIEW   = /** @type {118} */(  $('v')  );
 export const I8A        = 128;
 export const I8         = 129;
 
-export const U8CA       = 130;
-export const U8C        = 131;
+// space for I8CA
 
 export const U8A        = 132;
 export const U8         = 133;
 
-// space for Float8Array
+export const U8CA       = 134;
+export const U8C        = 135;
 
 export const I16A       = 136;
 export const I16        = 137;

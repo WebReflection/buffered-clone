@@ -498,6 +498,8 @@ Like it is for *encoding*, buffers are decoded just like strings and their retur
 | i64[]     | `160` | BigIntArray  |
 | u64[]     | `164` | BigUintArray |
 
+The *Uint8ClampedArray* is serialized and deserialized as `u8[]` and it's up to implementations to decide when that buffer should be viewed through the *clamped* variant (i.e. to restore an *ImageData* instance, where supported).
+
 #### Typed views Encoding
 
 Typed list of numbers are represented through their *type* and *buffer*, where both could be recursive (multiple views can share the same buffer).

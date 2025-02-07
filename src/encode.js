@@ -16,7 +16,6 @@ import {
   // typed
   I8A,
   U8A,
-  U8CA,
   I16A,
   U16A,
   I32A,
