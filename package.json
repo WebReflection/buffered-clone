@@ -31,6 +31,10 @@
     "./json": {
       "import": "./src/json/index.js"
     },
+    "./number": {
+      "import": "./src/number.js",
+      "types": "./types/number.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

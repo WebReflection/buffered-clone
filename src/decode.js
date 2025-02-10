@@ -183,19 +183,25 @@ class Decoder {
     return value;
   }
 
+  /**
+   * @returns {number}
+   */
   length() {
-    let { a, i } = this, type;
+    const { a, i } = this;
     switch (a[i]) {
       case U8:  {
         this.i += 2;
         return a[i + 1];
       };
-      case U16: type = number.u16; break;
-      case U32: type = number.u32; break;
-      default:  type = number.f64; break;
+      case U16: {
+        const value = a.subarray(i + 1, this.i += 3);
+        return /** @type {number} */(number.u16.decode(value));
+      }
+      default: {
+        const value = a.subarray(i + 1, this.i += 5);
+        return /** @type {number} */(number.u32.decode(value));
+      }
     }
-    this.i += type.length + 1;
-    return /** @type {number} */(type.decode(a.subarray(i + 1, this.i)));
   }
 
   /**

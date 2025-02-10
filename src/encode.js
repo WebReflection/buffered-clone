@@ -14,6 +14,7 @@ import {
   BIGINT,
 
   // typed
+  U8,
   I8A,
   U8A,
   I16A,
@@ -347,7 +348,7 @@ class Encoder {
       if (r > 1) recursive(m, value, _);
       else m.set(value, /** @type {number[]} */(this.a.slice(_)));
     }
-    else pushValues(this, [STRING, 0]);
+    else pushValues(this, [STRING, U8, 0]);
   }
 
   /**

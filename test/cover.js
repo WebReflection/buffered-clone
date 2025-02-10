@@ -244,3 +244,8 @@ class NotError extends Error {
 }
 
 assert(decode(encode(new NotError('because'))).message, 'because');
+
+assert(decode([]), void 0);
+assert(decode(encode('')), '');
+assert(decode(encode(['a', '', '', 'b'])).join('-'), 'a---b');
+assert(decode(encode(1.2345678901234567)), 1.2345678901234567);

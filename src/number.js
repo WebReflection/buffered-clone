@@ -30,9 +30,9 @@ import {
 export class Number {
   /**
    * @param {TypedArray} view
-   * @param {Uint8Array<ArrayBufferLike>} [ui8a]
+   * @param {Uint8Array<ArrayBufferLike>} ui8a
    */
-  constructor(view, ui8a = new Uint8Array(view.buffer)) {
+  constructor(view, ui8a) {
     this.$ = view;
     this._ = ui8a;
     this.length = view.BYTES_PER_ELEMENT;
@@ -50,26 +50,36 @@ export class Number {
    * @returns {number|bigint}
    */
   decode(value) {
-    this.$[0] = 0;
     this._.set(value);
     return this.$[0];
   }
 }
 
-// signed
-export const i8   = new Number(new Int8Array(1));
-export const i16  = new Number(new Int16Array(1));
-export const i32  = new Number(new Int32Array(1));
+// buffers
+const b1 = new ArrayBuffer(1);
+const b2 = new ArrayBuffer(2);
+const b4 = new ArrayBuffer(4);
+const b8 = new ArrayBuffer(8);
 
 // unsigned
-const ui8a = new Uint8Array(1);
-export const u8   = new Number(ui8a, ui8a);
-export const u16  = new Number(new Uint16Array(1));
-export const u32  = new Number(new Uint32Array(1));
+const ui8b1 = new Uint8Array(b1);
+const ui8b2 = new Uint8Array(b2);
+const ui8b4 = new Uint8Array(b4);
+const ui8b8 = new Uint8Array(b8);
+
+// signed
+export const i8   = new Number(new Int8Array(b1), ui8b1);
+export const i16  = new Number(new Int16Array(b2), ui8b2);
+export const i32  = new Number(new Int32Array(b4), ui8b4);
+
+// unsigned
+export const u8   = new Number(new Uint8Array(b1), ui8b1);
+export const u16  = new Number(new Uint16Array(b2), ui8b2);
+export const u32  = new Number(new Uint32Array(b4), ui8b4);
 
 // float or double precision
-export const f32  = new Number(new Float32Array(1));
-export const f64  = new Number(new Float64Array(1));
+export const f32  = new Number(new Float32Array(b4), ui8b4);
+export const f64  = new Number(new Float64Array(b8), ui8b8);
 
 // type "bigint"
 export class BigNumber extends Number {
@@ -78,17 +88,16 @@ export class BigNumber extends Number {
    * @returns {bigint}
    */
   decode(value) {
-    this.$[0] = 0n;
     this._.set(value);
-    return this.$[0];
+    return /** @type {bigint} */(this.$[0]);
   }
 }
 
 // signed
-export const i64  = new BigNumber(new BigInt64Array(1));
+export const i64  = new BigNumber(new BigInt64Array(b8), ui8b8);
 
 // unsigned
-export const u64  = new BigNumber(new BigUint64Array(1));
+export const u64  = new BigNumber(new BigUint64Array(b8), ui8b8);
 
 
 

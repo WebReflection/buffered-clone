@@ -3,9 +3,9 @@
 export class Number {
     /**
      * @param {TypedArray} view
-     * @param {Uint8Array<ArrayBufferLike>} [ui8a]
+     * @param {Uint8Array<ArrayBufferLike>} ui8a
      */
-    constructor(view: TypedArray, ui8a?: Uint8Array<ArrayBufferLike>);
+    constructor(view: TypedArray, ui8a: Uint8Array<ArrayBufferLike>);
     $: TypedArray;
     _: Uint8Array<ArrayBufferLike>;
     length: number;
