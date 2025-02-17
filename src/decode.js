@@ -80,7 +80,7 @@ class Decoder {
    * @returns
    */
   array(value) {
-    for (let i = 0, length = this.length(); i < length; i++)
+    for (let i = 0; i < value.length; i++)
       value[i] = this.decode();
     return value;
   }
@@ -111,7 +111,7 @@ class Decoder {
       case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion(as);
       // JSON arrays / objects
       case OBJECT:    return this.object(track(this.m, as, {}));
-      case ARRAY:     return this.array(track(this.m, as, []));
+      case ARRAY:     return this.array(track(this.m, as, new Array(this.length())));
       // strings
       // case ASCII:     return this.string(as, true);
       case STRING:    return this.string(as);
