@@ -34,8 +34,6 @@ import {
   IMAGEDATA,
 } from './constants.js';
 
-import Float16Array from './float16array.js';
-
 import * as number from './number.js';
 
 /**
@@ -155,8 +153,9 @@ class Decoder {
       case BUFFER:    return track(this.m, as, this.buffer());
       case REGEXP:    return track(this.m, as, this.regexp());
       case ERROR:     return track(this.m, as, this.error());
-      /* c8 ignore next 2 */
+      /* c8 ignore next 3 */
       case F16:       return this.number(as, number.f16);
+      //@ts-ignore
       case F16A:      return track(this.m, as, new Float16Array(this.decode()));
       default: {
         M.clear();
