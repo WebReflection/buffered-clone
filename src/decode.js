@@ -14,6 +14,7 @@ import {
   U8A, U8,
   I16A, I16,
   U16A, U16,
+  F16A, F16,
   I32A, I32,
   F32A, F32,
   U32A, U32,
@@ -152,6 +153,10 @@ class Decoder {
       case BUFFER:    return track(this.m, as, this.buffer());
       case REGEXP:    return track(this.m, as, this.regexp());
       case ERROR:     return track(this.m, as, this.error());
+      /* c8 ignore next 3 */
+      case F16:       return this.number(as, number.f16);
+      //@ts-ignore
+      case F16A:      return track(this.m, as, new Float16Array(this.decode()));
       default: {
         M.clear();
         const type = fromCharCode(this.a[as]);

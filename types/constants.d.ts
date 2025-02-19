@@ -30,6 +30,8 @@ export const I16A: 136;
 export const I16: 137;
 export const U16A: 140;
 export const U16: 141;
+export const F16A: 142;
+export const F16: 143;
 export const I32A: 144;
 export const I32: 145;
 export const U32A: 148;

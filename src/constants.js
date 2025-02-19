@@ -53,7 +53,8 @@ export const I16        = 137;
 export const U16A       = 140;
 export const U16        = 141;
 
-// space for Float16Array
+export const F16A       = 142;
+export const F16        = 143;
 
 export const I32A       = 144;
 export const I32        = 145;
