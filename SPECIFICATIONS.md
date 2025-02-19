@@ -33,11 +33,14 @@ It's up to implementations to fine-tune recursion (strings, only objects or arra
 | u16       | `141` | number  |
 | u32       | `149` | number  |
 |                             |
+| f16       | `143` | number  |
 | f32       | `153` | number  |
 | f64       | `157` | number  |
 |                             |
 | i64       | `161` | bigint  |
 | u64       | `165` | bigint  |
+
+**Warning** the `f16` type is currently not widely available across browsers, namely *Chrome/ium* browsers do not support it **yet** but support is coming soon!
 
 #### Numbers Encoding
 
@@ -493,6 +496,7 @@ Like it is for *encoding*, buffers are decoded just like strings and their retur
 | u16[]     | `140` | Uint16Array  |
 | u32[]     | `148` | Uint32Array  |
 |                                  |
+| f16[]     | `142` | Float16Array |
 | f32[]     | `152` | Float32Array |
 | f64[]     | `156` | Float64Array |
 |                                  |
@@ -500,6 +504,8 @@ Like it is for *encoding*, buffers are decoded just like strings and their retur
 | u64[]     | `164` | BigUintArray |
 
 The *Uint8ClampedArray* is serialized and deserialized as `u8[]` and it's up to implementations to decide when that buffer should be viewed through the *clamped* variant (i.e. to restore an *ImageData* instance, where supported).
+
+**Warning** the `Float16Array` type is currently not widely available across browsers, namely *Chrome/ium* browsers do not support it **yet** but support is coming soon!
 
 #### Typed views Encoding
 
