@@ -8,6 +8,7 @@ import {
   U8,
   I16,
   U16,
+  F16,
   I32,
   F32,
   U32,
@@ -23,8 +24,10 @@ import {
   MAX_I32,
 } from './constants.js';
 
-/** @typedef {I8|U8|I16|U16|I32|F32|U32|I64|F64|U64} Type */
-/** @typedef {Int8Array|Uint8Array|Int16Array|Uint16Array|Int32Array|Float32Array|Uint32Array|BigInt64Array|Float64Array|BigUint64Array} TypedArray */
+import Float16Array from './float16array.js';
+
+/** @typedef {I8|U8|I16|U16|F16|I32|F32|U32|I64|F64|U64} Type */
+/** @typedef {Int8Array|Uint8Array|Int16Array|Uint16Array|Float16Array|Int32Array|Float32Array|Uint32Array|BigInt64Array|Float64Array|BigUint64Array} TypedArray */
 
 // type "number"
 export class Number {
@@ -78,6 +81,7 @@ export const u16  = new Number(new Uint16Array(b2), ui8b2);
 export const u32  = new Number(new Uint32Array(b4), ui8b4);
 
 // float or double precision
+export const f16  = new Number(new Float16Array(b2), ui8b2);
 export const f32  = new Number(new Float32Array(b4), ui8b4);
 export const f64  = new Number(new Float64Array(b8), ui8b8);
 

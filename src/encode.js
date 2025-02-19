@@ -19,6 +19,7 @@ import {
   U8A,
   I16A,
   U16A,
+  F16A,
   I32A,
   F32A,
   U32A,
@@ -46,6 +47,8 @@ import {
   pushValues,
   pushView,
 } from './encode/utils.js';
+
+import Float16Array from './float16array.js';
 
 import * as number from './number.js';
 
@@ -374,12 +377,13 @@ class Encoder {
     else if (view instanceof Uint16Array) type = U16A;
     else if (view instanceof Int32Array) type = I32A;
     else if (view instanceof Uint32Array) type = U32A;
-    // else if (view instanceof Float16Array) type = F16A;
     else if (view instanceof Float32Array) type = F32A;
     else if (view instanceof Float64Array) type = F64A;
     else if (view instanceof BigInt64Array) type = I64A;
     else if (view instanceof BigUint64Array) type = U64A;
     else if (view instanceof DataView) type = DATAVIEW;
+    /* c8 ignore next */
+    else if (/** @type {Float16Array} */(view) instanceof Float16Array) type = F16A;
     pushValue(this, type);
     if (type !== NULL && !this.known(view.buffer)) this.buffer(view.buffer);
   }
