@@ -1,7 +1,6 @@
 import * as flatted from 'https://esm.run/flatted';
 import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
 import { BSON } from 'https://esm.run/bson';
-import * as json from '../../src/json/index.js';
 
 import { data, verify } from '../data.js';
 import { encode, decode } from '../../src/index.js';
@@ -147,19 +146,6 @@ export default {
       },
     },
     {
-      name: 'Buffered Clone - JSON',
-      url: 'buffered-json/serialization.js',
-      hot: 5,
-      decode(data) {
-        return json.decode(data);
-      },
-      send: () => [[json.encode(carts)]],
-      verify(data) {
-        if (JSON.stringify(data) !== JSON.stringify(carts))
-          throw new Error('invalid data');
-      },
-    },
-    {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
       hot: 5,
@@ -202,17 +188,6 @@ export default {
         if (ungap.stringify(result) !== ungap.stringify(recursive()))
           throw new Error('invalid data');
       },
-    },
-    {
-      name: 'Buffered Clone - JSON',
-      url: 'buffered-json/serialization.js',
-      hot: 3,
-      decode: data => json.decode(data),
-      send: () => [[json.encode(recursive())]],
-      verify(result) {
-        if (flatted.stringify(result) !== flatted.stringify(recursive()))
-          throw new Error('invalid data');
-      }
     },
     {
       name: 'Buffered Clone',
