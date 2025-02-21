@@ -10,7 +10,11 @@ context.fillRect(0, 0, canvas.width, canvas.height);
 
 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-const clone = decode(encode(imageData));
+const [a, clone, b, _, c] = decode(encode(['a', imageData, 'b', imageData, 'c']));
+console.assert(a === 'a');
+console.assert(b === 'b');
+console.assert(c === 'c');
+console.assert(clone === _);
 canvas = document.createElement('canvas');
 canvas.width = clone.width;
 canvas.height = clone.height;

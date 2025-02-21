@@ -549,13 +549,36 @@ These types are not strictly necessary in other *PLs* but are nice to have in th
 | DATAVIEW  | `118` | v     |
 | IMAGEDATA | `100` | d     |
 
-Hopefully all ways to encode and decode data is clear by now and there's nothing really special about these values:
+Hopefully all ways to encode and decode data is clear by now and there's nothing really special about these values except for *ImageData*, which follows a different approach:
 
   * an **Error** is encoded like `[101, ...encode_string(error.name), ...encode_string(error.message)]`, where the *name* is the type of error and the *message* is its ... well, *message*. While *decoding*, if the *name* is not a globally available/known *Error* class, a `new Error(message)` is used instead as fallback to preserve cross *PL* portability.
   * a **Map** is encoded like `[77, ...encode_value(entry_keyX),  ...encode_value(entry_valueX)]`
   * a **RegExp** is encoded like `[82,  ...encode_string(re.source), ...encode_string(re.flags)]`
   * a **Set** is encoded like `[83, ...encode_value(valueX)]`
   * a **DataView** is encoded like any other *typed list* except its *type* is `118`: `[118, ...encode_buffer(value)]`
-  * an **ImageData** is encoded like `[100, ...encode_value(entry_data), ...encode_value(entry_width), ...encode_value(entry_height), ...encode_value(entry_colorSpace)]` with the buffer defined as *u8a*, instead of clamped, for simplicity sake. When decoded a `new Uint8ClampedArray(u8a.buffer)` *must* be used to allow `ImageData` to properly work but by all mean a *Uint8Array* can represent a *Uint8ClampedArray*.
 
+
+#### ImageData
+
+All constructors that are beyond the pure *JS* context as encoded like an *Array* but with a dedicated type and the `length` + the list of arguments to be used to revive such reference.
+
+In the *ImageData* example, `[ref.data, ref.width, ref.height, { colorSpace: ref.colorSpace }]` is encoded as arguments for the *ImageData* type, allowing any variadic constructor to satisfy its requirements while being revived from the encoding.
+
+```js
+// ImageData encoding example
+[
+  100,                      // ImageData type
+  133, 4,                   // number of arguments
+  ...encode(data),          // arg0
+  ...encode(width),         // arg1
+  ...encode(height),        // arg2
+  ...encode({ colorSpace }) // arg3
+]
+```
+
+To **revive** the data, a new *array* of `length` is created and populated with all values, then the constructor invoked via `new ImageData(...args)`.
+
+In this specific case the *Uint8ClampedArray* is recreated as first argument because that type is currently not natively supported as number and normalized as *Uint8Array* which satisfies data integrity.
+
+This generic approach can scale with pretty much any other (future) type without breaking expectations around the features or settings those types might add in the future.
 - - -

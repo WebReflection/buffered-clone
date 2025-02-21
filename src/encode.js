@@ -209,11 +209,11 @@ class Encoder {
    */
   imageData(value) {
     this.track(0, value);
-    pushValue(this, IMAGEDATA);
+    pushLength(this, IMAGEDATA, 4);
     this.encode(value.data, false);
-    this.encode(value.width, false);
-    this.encode(value.height, false);
-    asASCII(this, STRING, value.colorSpace);
+    this.number(NUMBER, value.width);
+    this.number(NUMBER, value.height);
+    this.object(OBJECT, ['colorSpace', value.colorSpace]);
   }
 
   /**
