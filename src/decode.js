@@ -113,8 +113,8 @@ class Decoder {
   }
 
   decode() {
-    const as = this.i;
-    switch (this.a[this.i++]) {
+    const as = this.i++;
+    switch (this.a[as]) {
       case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion(as);
       // JSON arrays / objects
       case OBJECT:    return this.object(track(this.m, as, {}));
