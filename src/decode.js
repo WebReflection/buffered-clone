@@ -45,6 +45,12 @@ const { fromCharCode } = String;
 const decoder = new TextDecoder;
 
 /**
+ * @param {number} length
+ * @returns
+ */
+const alloc = length => new Array(length);
+
+/**
  * @param {number} at
  */
 const throwOnRecursion = at => {
@@ -112,7 +118,7 @@ class Decoder {
       case RECURSIVE: return this.m.get(this.length()) ?? throwOnRecursion(as);
       // JSON arrays / objects
       case OBJECT:    return this.object(track(this.m, as, {}));
-      case ARRAY:     return this.array(track(this.m, as, new Array(this.length())));
+      case ARRAY:     return this.array(track(this.m, as, alloc(this.length())));
       // strings
       // case ASCII:     return this.string(as, true);
       case STRING:    return this.string(as);
@@ -176,14 +182,14 @@ class Decoder {
   }
 
   /* c8 ignore next 11 */
+  /**
+   * @param {number} as
+   * @returns {ImageData}
+   */
   imageData(as) {
-    const data = this.decode();
-    const width = this.decode();
-    const height = this.decode();
-    this.i++;
-    const colorSpace = /** @type {PredefinedColorSpace} */(this.ascii());
-    const ui8c = new Uint8ClampedArray(data.buffer);
-    const value = new ImageData(ui8c, width, height, { colorSpace });
+    const [{ buffer }, ...rest] = this.array(alloc(this.length()));
+    //@ts-ignore
+    const value = new ImageData(new Uint8ClampedArray(buffer), ...rest);
     this.m.set(as, value);
     return value;
   }
