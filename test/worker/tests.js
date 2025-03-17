@@ -1,11 +1,20 @@
 import * as flatted from 'https://esm.run/flatted';
+import * as msgpack from 'https://esm.run/@msgpack/msgpack';
 import * as ungap from 'https://esm.run/@ungap/structured-clone/json';
 import { BSON } from 'https://esm.run/bson';
+import { Encoder, Decoder } from 'https://esm.run/@webreflection/messagepack@0.0.3';
+import JSPack from '../../../node_modules/jspack/src/index.js';
+
+const jspack = new JSPack;
+const jspackNc = new JSPack({ circular: false });
 
 import { data, verify } from '../data.js';
 import { encode, decode } from '../../src/index.js';
 
 const carts = await (await fetch('./carts.json')).json();
+
+const { encode: wrEncode } = new Encoder({ initialBufferSize: 0x1000000 });
+const { decode: wrDecode } = new Decoder();
 
 let makeRecursive = true, cloned = null;
 const recursive = () => {
@@ -20,11 +29,12 @@ const recursive = () => {
   return cloned;
 };
 
-let makeEncoded = true, encoded = null;
+let makeEncoded = true, encoded = null, jsp_encoded;
 const buffer = () => {
   if (makeEncoded) {
     makeEncoded = false;
     encoded = encode(data);
+    jsp_encoded = jspack.encode(data);
   }
   return encoded;
 };
@@ -53,53 +63,53 @@ const checkRecursion = data => {
 };
 
 export default {
-  ['Roundtrip']: [
-    {
-      name: 'Structured Clone',
-      url: 'structured/roundtrip.js',
-      hot: 1,
-      send,
-      verify,
-    },
-    {
-      name: 'Structured Clone: double',
-      url: 'structured/double.js',
-      hot: 1,
-      send,
-      verify,
-    },
-    {
-      name: 'Structured Clone: triple',
-      url: 'structured/triple.js',
-      hot: 1,
-      send,
-      verify,
-    },
-    {
-      name: 'Buffered Clone',
-      url: 'buffered/roundtrip.js',
-      hot: 5,
-      decode: data => decode(data),
-      send: sendEncoded,
-      verify,
-    },
-    {
-      name: 'Buffered Clone: double',
-      url: 'buffered/double.js',
-      hot: 5,
-      decode: data => decode(data),
-      send: sendEncoded,
-      verify,
-    },
-    {
-      name: 'Buffered Clone: triple',
-      url: 'buffered/triple.js',
-      hot: 5,
-      decode: data => decode(data),
-      send: sendEncoded,
-      verify,
-    }
-  ],
+  // ['Roundtrip']: [
+  //   {
+  //     name: 'Structured Clone',
+  //     url: 'structured/roundtrip.js',
+  //     hot: 1,
+  //     send,
+  //     verify,
+  //   },
+  //   {
+  //     name: 'Structured Clone: double',
+  //     url: 'structured/double.js',
+  //     hot: 1,
+  //     send,
+  //     verify,
+  //   },
+  //   {
+  //     name: 'Structured Clone: triple',
+  //     url: 'structured/triple.js',
+  //     hot: 1,
+  //     send,
+  //     verify,
+  //   },
+  //   {
+  //     name: 'Buffered Clone',
+  //     url: 'buffered/roundtrip.js',
+  //     hot: 5,
+  //     decode: data => decode(data),
+  //     send: sendEncoded,
+  //     verify,
+  //   },
+  //   {
+  //     name: 'Buffered Clone: double',
+  //     url: 'buffered/double.js',
+  //     hot: 5,
+  //     decode: data => decode(data),
+  //     send: sendEncoded,
+  //     verify,
+  //   },
+  //   {
+  //     name: 'Buffered Clone: triple',
+  //     url: 'buffered/triple.js',
+  //     hot: 5,
+  //     decode: data => decode(data),
+  //     send: sendEncoded,
+  //     verify,
+  //   }
+  // ],
   ['Simple Serialization']: [
     {
       name: 'JSON',
@@ -112,17 +122,17 @@ export default {
           throw new Error('invalid data');
       }
     },
-    {
-      name: 'BSON',
-      url: 'bson/serialization.js',
-      hot: 5,
-      decode: data => BSON.deserialize(data),
-      send: () => [[BSON.serialize(carts)]],
-      verify(data) {
-        if (JSON.stringify(data) !== JSON.stringify(carts))
-          throw new Error('invalid data');
-      }
-    },
+    // {
+    //   name: 'BSON',
+    //   url: 'bson/serialization.js',
+    //   hot: 5,
+    //   decode: data => BSON.deserialize(data),
+    //   send: () => [[BSON.serialize(carts)]],
+    //   verify(data) {
+    //     if (JSON.stringify(data) !== JSON.stringify(carts))
+    //       throw new Error('invalid data');
+    //   }
+    // },
     {
       name: 'Flatted',
       url: 'flatted/serialization.js',
@@ -130,9 +140,9 @@ export default {
       decode: data => flatted.parse(data),
       send: () => [[flatted.stringify(carts)]],
       verify(data) {
-        if (flatted.stringify(data) !== flatted.stringify(carts))
+        if (JSON.stringify(data) !== JSON.stringify(carts))
           throw new Error('invalid data');
-      },
+      }
     },
     {
       name: '@ungap structured-clone/json',
@@ -141,10 +151,32 @@ export default {
       decode: data => ungap.parse(data),
       send: () => [[ungap.stringify(carts)]],
       verify(data) {
-        if (ungap.stringify(data) !== ungap.stringify(carts))
+        if (JSON.stringify(data) !== JSON.stringify(carts))
           throw new Error('invalid data');
-      },
+      }
     },
+    {
+      name: 'MessagePack',
+      url: 'msgpack/serialization.js',
+      hot: 5,
+      decode: data => msgpack.decode(data),
+      send: () => [[msgpack.encode(carts)]],
+      verify(data) {
+        if (JSON.stringify(data) !== JSON.stringify(carts))
+          throw new Error('invalid data');
+      }
+    },
+    // {
+    //   name: '@webreflection MessagePack',
+    //   url: 'messagepack/serialization.js',
+    //   hot: 5,
+    //   decode: data => wrDecode(data),
+    //   send: () => [[wrEncode(carts)]],
+    //   verify(data) {
+    //     if (JSON.stringify(data) !== JSON.stringify(carts))
+    //       throw new Error('invalid data');
+    //   }
+    // },
     {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
@@ -159,11 +191,37 @@ export default {
         return [[ui8a, options], [ui8a.buffer]];
       },
       verify(data) {
-        const clone = encode(data);
-        const source = encode(carts);
-        if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
+        if (JSON.stringify(data) !== JSON.stringify(carts))
           throw new Error('invalid data');
+      }
+    },
+    {
+      name: 'JSPack NC',
+      url: 'jspack/serialization-nc.js',
+      hot: 5,
+      decode: data => jspackNc.decode(data),
+      send() {
+        const ui8a = jspackNc.encode(carts);
+        return [[ui8a], [ui8a.buffer]];
       },
+      verify(data) {
+        if (JSON.stringify(data) !== JSON.stringify(carts))
+          throw new Error('invalid data');
+      }
+    },
+    {
+      name: 'JSPack',
+      url: 'jspack/serialization.js',
+      hot: 5,
+      decode: data => jspack.decode(data),
+      send() {
+        const ui8a = jspack.encode(carts);
+        return [[ui8a], [ui8a.buffer]];
+      },
+      verify(data) {
+        if (JSON.stringify(data) !== JSON.stringify(carts))
+          throw new Error('invalid data');
+      }
     },
   ],
   ['Recursive Serialization']: [
@@ -189,6 +247,17 @@ export default {
           throw new Error('invalid data');
       },
     },
+    // {
+    //   name: '@webreflection MessagePack',
+    //   url: 'messagepack/serialization.js',
+    //   hot: 3,
+    //   decode: data => wrDecode(data),
+    //   send: () => [[wrEncode(recursive())]],
+    //   verify(result) {
+    //     if (ungap.stringify(result) !== ungap.stringify(recursive()))
+    //       throw new Error('invalid data');
+    //   },
+    // },
     {
       name: 'Buffered Clone',
       url: 'buffered/serialization.js',
@@ -204,6 +273,20 @@ export default {
         if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
           throw new Error('invalid data');
       }
+    },
+    {
+      name: 'JSPack',
+      url: 'jspack/serialization.js',
+      hot: 3,
+      decode: data => jspack.decode(data),
+      send() {
+        const ui8a = jspack.encode(recursive());
+        return [[ui8a], [ui8a.buffer]];
+      },
+      verify(result) {
+        if (flatted.stringify(result) !== flatted.stringify(recursive()))
+          throw new Error('invalid data');
+      },
     },
   ],
 
@@ -252,6 +335,29 @@ export default {
         return this.ok;
       }
     },
+    {
+      name: 'JSPack',
+      url: 'jspack/serialization.js',
+      hot: 3,
+      ok: 1,
+      warn: true,
+      decode: data => jspack.decode(data),
+      send() {
+        const ui8a = jspack.encode(data);
+        return [[ui8a], [ui8a.buffer]];
+      },
+      verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
+        const clone = jspack.encode(result);
+        const source = jspack.encode(data);
+        if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
+          throw new Error('invalid data');
+        return this.ok;
+      }
+    },
   ],
   ['Decode Complex Data']: [
     {
@@ -287,6 +393,26 @@ export default {
         }
         const clone = encode(result);
         const source = buffer();
+        if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
+          throw new Error('invalid data');
+        return this.ok;
+      }
+    },
+    {
+      name: 'JSPack',
+      url: 'jspack/decode.js',
+      hot: 3,
+      ok: 1,
+      warn: true,
+      decode: data => jspack.decode(data),
+      send: () => [[jsp_encoded]],
+      verify(result) {
+        if (this.warn) {
+          this.warn = false;
+          this.ok = checkRecursion(result);
+        }
+        const clone = jspack.encode(result);
+        const source = jsp_encoded;
         if (clone.length !== source.length || !clone.every((v, i) => v === source[i]))
           throw new Error('invalid data');
         return this.ok;

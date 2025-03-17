@@ -22,7 +22,7 @@ for (const [test, runs] of Object.entries(tests)) {
   console.log(bold(test.toUpperCase()));
   let ok = 1;
   for (const run of runs) {
-    // if (run.name === 'BSON') debugger;
+    // if (run.name.includes('@webreflection')) debugger;
     const p = append('p');
     const small = el('small', ` @ ${run.url} `);
     p.append(el('strong', run.name), small, el('br'));
@@ -35,6 +35,8 @@ for (const [test, runs] of Object.entries(tests)) {
       ok = run.verify(run.decode?.(data) ?? data) ?? 1;
     };
     await bench.ready;
+    globalThis.console.time(`    • total`);
+    let now = performance.now();
     bench.run(`    • ${lighter('cold run')} `);
     await bench.ready.then(check);
     for (let i = 0; i < run.hot; i++) {
@@ -42,10 +44,12 @@ for (const [test, runs] of Object.entries(tests)) {
       await bench.ready.then(check);
     }
     bench.terminate();
+    now = performance.now() - now;
+    globalThis.console.timeEnd(`    • total`);
     const emoji = ok > 0 ? '✅' : (!ok ? '⚠️' : '🚫');
     const prefix = checks === (run.hot + 1) ? `${emoji} done` : `🚫 failed`;
     const suffix = `(1 cold + ${run.hot} hot runs)`;
-    info.textContent = `${prefix} with ${checks} checks ${suffix}`;
+    info.textContent = `${prefix} with ${checks} checks ${suffix} in ${now.toFixed(2)}ms`;
   }
   append('hr');
   console.log('');

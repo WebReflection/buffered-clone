@@ -18,7 +18,7 @@ const data = {
   object,
   string: String(date),
 
-  bigint: 123456789n,
+  // bigint: 123456789n,
   buffer,
   date,
   error,
