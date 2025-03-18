@@ -53,9 +53,10 @@ export const encoder = ({
   const isMirrored = 0 < mirrored.length;
   const isArrayBuffer = buffer instanceof ArrayBuffer;
 
-  const reBuffer = () => {
+  /** @param {ArrayBufferLike} [$] */
+  const reBuffer = $ => {
     //@ts-ignore
-    buffer = buffer.transferToFixedLength(bufferLength);
+    buffer = $ || buffer.transferToFixedLength(bufferLength);
     data = new DataView(buffer);
     view = new Uint8Array(buffer);
   };
@@ -522,10 +523,14 @@ export const encoder = ({
    * otherwise it returns a view of the serialized data,
    * copying the part of the buffer that was involved.
    * @param {any} value
-   * @param {boolean} [into=false]
+   * @param {boolean | ArrayBufferLike} [into=false]
    * @returns {Uint8Array | number}
    */
   return (value, into = false) => {
+    if (typeof into !== 'boolean') {
+      bufferLength = into.byteLength;
+      reBuffer(into);
+    }
     i = byteOffset;
     encode(value, new Map(computed));
     const result = into ? (i - byteOffset) : view.slice(byteOffset, i);

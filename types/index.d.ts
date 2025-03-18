@@ -9,5 +9,5 @@ export default class JSPack {
         mirrored: any[];
     });
     decode: (view: Uint8Array) => any;
-    encode: (value: any, into?: boolean) => Uint8Array | number;
+    encode: (value: any, into?: boolean | ArrayBufferLike) => Uint8Array | number;
 }

@@ -6,7 +6,7 @@
   "main": "./src/index.js",
   "module": "./src/index.js",
   "scripts": {
-    "build": "npm run ts && npm run test",
+    "build": "npm run ts",
     "test": "c8 node ./test/cover.js",
     "ts": "tsc --allowJs --checkJs --lib dom,esnext --target esnext -d --emitDeclarationOnly --outDir ./types ./src/index.js",
     "coverage": "mkdir -p ./coverage; c8 report --reporter=text-lcov > ./coverage/lcov.info"

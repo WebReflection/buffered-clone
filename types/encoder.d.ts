@@ -6,7 +6,7 @@ export function encoder({ littleEndian, circular, byteOffset, byteLength, useFlo
     useFloat32: boolean;
     useUTF16: boolean;
     mirrored: any[];
-}): (value: any, into?: boolean) => Uint8Array | number;
+}): (value: any, into?: boolean | ArrayBufferLike) => Uint8Array | number;
 export class Encoder {
     constructor(options?: {
         littleEndian: boolean;
@@ -17,5 +17,5 @@ export class Encoder {
         useUTF16: boolean;
         mirrored: any[];
     });
-    encode: (value: any, into?: boolean) => Uint8Array | number;
+    encode: (value: any, into?: boolean | ArrayBufferLike) => Uint8Array | number;
 }
