@@ -47,16 +47,22 @@ export const encoder = ({
     i = byteOffset,
     bufferLength = buffer.byteLength,
     data = new DataView(buffer),
-    view = new Uint8Array(buffer)
+    view = new Uint8Array(buffer),
+    isArrayBuffer = buffer instanceof ArrayBuffer
   ;
 
   const isMirrored = 0 < mirrored.length;
-  const isArrayBuffer = buffer instanceof ArrayBuffer;
 
   /** @param {ArrayBufferLike} [$] */
   const reBuffer = $ => {
-    //@ts-ignore
-    buffer = $ || buffer.transferToFixedLength(bufferLength);
+    if ($) {
+      buffer = $;
+      isArrayBuffer = buffer instanceof ArrayBuffer;
+    }
+    else {
+      //@ts-ignore
+      buffer = buffer.transferToFixedLength(bufferLength);
+    }
     data = new DataView(buffer);
     view = new Uint8Array(buffer);
   };
