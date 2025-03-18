@@ -74,9 +74,7 @@ export const encoder = ({
 
   const resize = length => {
     if (bufferLength < length) {
-      const next = length + byteLength;
-      // round to the highest BYTES_PER_ELEMENT so far
-      bufferLength = next + 8 - (next % 8);
+      bufferLength = length + byteLength;
       if (isArrayBuffer) {
         if (buffer.resizable)
           buffer.resize(bufferLength);
