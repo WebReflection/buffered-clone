@@ -35,10 +35,9 @@ const td = new TextDecoder;
 export const decoder = ({
   littleEndian = defaultOptions.littleEndian,
   circular = defaultOptions.circular,
-  byteOffset = defaultOptions.byteOffset,
   mirrored = defaultOptions.mirrored,
 } = defaultOptions) => {
-  let i = byteOffset;
+  let i = 0;
 
   /**
    * object
@@ -463,8 +462,9 @@ export const decoder = ({
    * @returns
    */
   return view => {
-    i = byteOffset;
-    return decode(new DataView(view.buffer), view, create(null));
+    i = 0;
+    const { buffer, byteOffset } = view;
+    return decode(new DataView(buffer, byteOffset), view, create(null));
   };
 };
 

@@ -1,4 +1,4 @@
-export function decoder({ littleEndian, circular, byteOffset, mirrored, }?: {
+export function decoder({ littleEndian, circular, mirrored, }?: {
     littleEndian: boolean;
     circular: boolean;
     byteOffset: number;
