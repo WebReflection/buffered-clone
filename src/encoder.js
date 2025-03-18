@@ -75,6 +75,7 @@ export const encoder = ({
   const resize = length => {
     if (bufferLength < length) {
       bufferLength = length + byteLength;
+      while (bufferLength % 8) bufferLength++;
       if (isArrayBuffer) {
         if (buffer.resizable)
           buffer.resize(bufferLength);
