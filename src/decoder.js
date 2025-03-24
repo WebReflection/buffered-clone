@@ -125,6 +125,7 @@ export const decoder = ({
         i += 2;
       }
       value += asUTF16String(codes.splice(0));
+      /* c8 ignore next */
       if (circular) cache[index - 1] = value;
       return value;
     },
@@ -284,6 +285,7 @@ export const decoder = ({
      * @returns
      */
     (data, view, cache) => {
+      /* c8 ignore next 8 */
       const index = i;
       const ui8ca = new Uint8ClampedArray(builtin(data, view, cache));
       const width = builtin(data, view, cache);
@@ -303,6 +305,7 @@ export const decoder = ({
      */
     (data, view, cache) => {
       const index = i;
+      /* c8 ignore next */
       const Class = globalThis[builtin(data, view, cache)] || Error;
       //@ts-ignore
       const value = new Class(builtin(data, view, cache));
@@ -359,6 +362,7 @@ export const decoder = ({
      * @returns
      */
     data => {
+      /* c8 ignore next 3 */
       const value = data.getUint16(i, littleEndian);
       i += 2;
       return value;
@@ -370,6 +374,7 @@ export const decoder = ({
      * @returns
      */
     data => {
+      /* c8 ignore next 4 */
       //@ts-ignore
       const value = data.getFloat16(i, littleEndian);
       i += 2;

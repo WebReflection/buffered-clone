@@ -60,6 +60,8 @@ encode(anyCompatibleValue);
 
 // encodes *into* the currently available buffer
 encode(anyCompatibleValue, true);
+// encodes *into* a different buffer (discards the previous)
+encode(anyCompatibleValue, specificBuffer);
 
 // returns any compatible value that was serialized
 decode(ui8a);

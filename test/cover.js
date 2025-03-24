@@ -32,6 +32,7 @@ assert(decoder.decode(encoder.encode({symbol: Symbol.for('test')})).symbol, Symb
 assert(decoder.decode(encoder.encode(-0x80000001)), -0x80000001);
 assert(decoder.decode(encoder.encode(-0x8000)), -0x8000);
 assert(decoder.decode(encoder.encode("💩")), "💩");
+assert(decoder.decode(encoder.encode("💩".repeat(0x10000))), "💩".repeat(0x10000));
 assert(decoder.decode(encoder.encode(1.2)).toFixed(2), (1.2).toFixed(2));
 
 const d = new Date;
