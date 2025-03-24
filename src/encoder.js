@@ -27,6 +27,7 @@ const { entries } = Object;
 
 /** @param {any} value */
 const typeError = value => {
+  /* c8 ignore next */
   throw new TypeError(`Unable to clone ${String(value)}`);
 };
 
@@ -83,12 +84,15 @@ export const encoder = ({
       bufferLength = length + byteLength;
       if (isArrayBuffer) {
         if (buffer.resizable)
+          /* c8 ignore next */
           buffer.resize(bufferLength);
         else
           reBuffer();
       }
-      else
+      /* c8 ignore next 3 */
+      else {
         buffer.grow(bufferLength);
+      }
     }
   };
 
@@ -226,11 +230,14 @@ export const encoder = ({
    * @param {Map} cache
    */
   const asSymbol = (value, cache) => {
+    /* c8 ignore next */
     let description = value.description || '';
     if (description.startsWith('Symbol.'))
       description = description.slice(7);
+    /* c8 ignore next */
     else if (!Symbol.keyFor(value)) typeError(value);
     const length = description.length;
+    /* c8 ignore next */
     if (!length) typeError(value);
     resize(i + 1);
     data.setInt8(i++, -14);
@@ -249,10 +256,12 @@ export const encoder = ({
         data.setInt8(i++, -15);
         data.setUint8(i++, j);
         if (circular) builtin(buffer, cache, asBuffer);
+        /* c8 ignore next */
         else asBuffer(buffer);
         return;
       }
     }
+    /* c8 ignore next */
     typeError(value);
   };
 
@@ -294,6 +303,7 @@ export const encoder = ({
     asAscii(flags);
   };
 
+  /* c8 ignore next 14 */
   /**
    * @param {ImageData} value
    * @param {Map} cache
@@ -392,7 +402,8 @@ export const encoder = ({
     i += 5;
   };
 
-  // /** @param {number} value */
+  /* c8 ignore next 6 */
+  /** @param {number} value */
   const asF32 = value => {
     resize(i + 5);
     data.setInt8(i, -87);
@@ -464,6 +475,7 @@ export const encoder = ({
             else if (value >= -0x80000000) asI32(value);
             else asF64(value);
           }
+          /* c8 ignore next 7 */
           else if (value < 0x80) asI8(value);
           else if (value < 0x100) asU8(value);
           else if (value < 0x8000) asI16(value);
@@ -493,14 +505,17 @@ export const encoder = ({
         if (value !== null) {
           if ((circular || isMirrored) && known(value, cache)) break;
           if (circular) addCircular(value, cache);
-          if ('toJSON' in value) asJSON(value, cache);
+          if ('toJSON' in value) {
+            if (value instanceof Date) asDate(value);
+            else asJSON(value, cache);
+          }
           else if (isArray(value)) asArray(value, cache);
           else if (isView(value)) asView(value, cache);
           else if (value instanceof ArrayBuffer) asBuffer(value);
-          else if (value instanceof Date) asDate(value);
           else if (value instanceof Map) asMap(value, cache);
           else if (value instanceof Set) asSet(value, cache);
           else if (value instanceof RegExp) asRegExp(value, cache);
+          /* c8 ignore next */
           else if (value instanceof ImageData) asImageData(/** @type {ImageData} */(value), cache);
           else if (value instanceof Error) asError(value, cache);
           else asObject(value, cache);

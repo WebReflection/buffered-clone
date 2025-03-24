@@ -205,9 +205,7 @@ export const decoder = ({
      * @returns{symbol}
      */
     (data, view, cache) => {
-      const length = builtin(data, view, cache);
-      const value = asUTF16String(view.subarray(i, i + length));
-      i += length;
+      const value = builtin(data, view, cache);
       return Symbol[value] || Symbol.for(value);
     },
 

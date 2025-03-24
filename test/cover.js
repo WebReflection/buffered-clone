@@ -1,7 +1,21 @@
 import { data, verify } from './data.js';
 import BufferedClone from '../src/index.js';
+import { Encoder } from '../src/encoder.js';
+import { Decoder } from '../src/decoder.js';
 
 const { encode, decode } = new BufferedClone;
+const encoder = new Encoder({
+  useFloat32: true,
+  circular: false,
+  useUTF16: true,
+  mirrored: ['a', 'b', 'c']
+});
+const decoder = new Decoder({
+  useFloat32: true,
+  circular: false,
+  useUTF16: true,
+  mirrored: ['a', 'b', 'c']
+});
 
 const convert = value => decode(encode(value));
 
@@ -11,6 +25,17 @@ const assert = (result, expected) => {
     throw new Error(`Unexpected result`);
   }
 };
+
+assert(decoder.decode(encoder.encode(['a','b','c'])).join(','), 'a,b,c');
+assert(decoder.decode(encoder.encode({symbol: Symbol.iterator})).symbol, Symbol.iterator);
+assert(decoder.decode(encoder.encode({symbol: Symbol.for('test')})).symbol, Symbol.for('test'));
+assert(decoder.decode(encoder.encode(-0x80000001)), -0x80000001);
+assert(decoder.decode(encoder.encode(-0x8000)), -0x8000);
+assert(decoder.decode(encoder.encode("💩")), "💩");
+assert(decoder.decode(encoder.encode(1.2)).toFixed(2), (1.2).toFixed(2));
+
+const d = new Date;
+assert(decoder.decode(encoder.encode(d)).getTime(), d.getTime());
 
 console.time('structuredClone');
 const structured = structuredClone(data);
