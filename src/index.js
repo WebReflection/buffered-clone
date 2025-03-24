@@ -1,6 +1,12 @@
 //@ts-check
 
-import encode from './encode.js';
-import decode from './decode.js';
+import defaultOptions from './options.js';
+import { decoder } from './decoder.js';
+import { encoder } from './encoder.js';
 
-export { encode, decode };
+export default class JSPack {
+  constructor(options = defaultOptions) {
+    this.decode = decoder(options);
+    this.encode = encoder(options);
+  }
+}

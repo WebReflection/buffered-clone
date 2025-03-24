@@ -1,5 +1,9 @@
 import { data, verify } from './data.js';
-import { encode, decode } from '../src/index.js';
+// import { encode, decode } from '../src/index.js';
+
+import JSPack from '../node_modules/jspack/src/index.js';
+
+const { encode, decode } = new JSPack;
 
 // const data = [1, 2, 3];
 // data.push(data);
@@ -10,7 +14,7 @@ var clone = structuredClone(data);
 console.timeEnd('cold structuredClone');
 verify(clone);
 
-for (let i = 0; i < 5; i++)
+for (let i = 0; i < 10; i++)
   verify(structuredClone(data));
 
 console.time('hot structuredClone');
@@ -23,7 +27,7 @@ var clone = decode(encode(data));
 console.timeEnd('cold bufferedClone');
 verify(clone);
 
-for (let i = 0; i < 5; i++)
+for (let i = 0; i < 10; i++)
   verify(decode(encode(data)));
 
 console.time('hot bufferedClone');
