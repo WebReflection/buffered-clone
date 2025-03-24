@@ -1,43 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script type="module">
-    import './benchmark.js';
-    import * as constants from '../src/constants.js';
-    const values = [];
-    for (const [k, v] of Object.entries(constants))
-      values.push([k, v, String.fromCharCode(v)]);
-    values.sort((a, b) => a[0].localeCompare(b[0]));
-    console.table(values);
-
-    import { encode, decode } from '../src/index.js';
-
-    globalThis.encode = encode;
-    globalThis.decode = decode;
-
-    const buffer = new ArrayBuffer(1);
-    const encoded = encode({
-      literally: ['any', 'supported', 'type'],
-      recursion: true,
-      bigint: 1n,
-      numbers: [1, -2, 3, () => {}, 4, Symbol(), 5, undefined, 6],
-      map: new Map([['of', 'course']]),
-      set: new Set(['sure', 'thing']),
-      regexp: /a[s-w]ell/gm,
-      date: new Date,
-      typedArray: new Int32Array(1),
-      dataView: new DataView(buffer),
-      buffer: buffer,
-      // ignored
-      undefined: void 0,
-      method() {},
-      symbol: Symbol(),
-    });
-
-    console.log(encoded);
-    console.log(decode(encoded));
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="module" src="./index.js"></script>
 </head>
 </html>
