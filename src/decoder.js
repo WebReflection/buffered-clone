@@ -30,7 +30,7 @@ const Void = () => {};
  */
 const asUTF16String = codes => fromCharCode.apply(null, codes);
 
-const td = new TextDecoder;
+const td = new TextDecoder('utf-8', { fatal: true });
 
 export const decoder = ({
   littleEndian = defaultOptions.littleEndian,
