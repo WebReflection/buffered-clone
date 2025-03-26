@@ -548,7 +548,7 @@ export const encoder = ({
    * @returns {Uint8Array | number}
    */
   return (value, into = false) => {
-    if (typeof into !== 'boolean' && buffer !== into) {
+    if (typeof into !== 'boolean') {
       bufferLength = into.byteLength;
       reBuffer(into);
     }
